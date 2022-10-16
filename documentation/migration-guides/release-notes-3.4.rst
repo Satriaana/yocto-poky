@@ -5,7 +5,7 @@ New Features / Enhancements in 3.4
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 -  Linux kernel 5.14, glibc 2.34 and ~280 other recipe upgrades
--  Switched override character to ':' (replacing '_') for more robust parsing and improved performance - see the above migration guide for help
+-  Switched override character to ':' (replacing '_') for more robust parsing and improved performance --- see the above migration guide for help
 -  Rust integrated into core, providing rust support for cross-compilation and SDK
 -  New create-spdx class for creating SPDX SBoM documents
 -  New recipes: cargo, core-image-ptest-all, core-image-ptest-fast, core-image-weston-sdk, erofs-utils, gcompat, gi-docgen, libmicrohttpd, libseccomp, libstd-rs, perlcross, python3-markdown, python3-pyyaml, python3-smartypants, python3-typogrify, rust, rust-cross, rust-cross-canadian, rust-hello-world, rust-llvm, rust-tools-cross-canadian, rustfmt, xwayland
@@ -36,7 +36,7 @@ New Features / Enhancements in 3.4
 
 -  Kernel-related enhancements:
 
-   -  Support zstd-compressed modules and initramfs images
+   -  Support zstd-compressed modules and :term:`Initramfs` images
    -  Allow opt-out of split kernel modules
    -  linux-yocto-dev: base AUTOREV on specified version
    -  kernel-yocto: provide debug / summary information for metadata
@@ -60,14 +60,14 @@ New Features / Enhancements in 3.4
 -  wic enhancements:
 
    -  Added erofs filesystem support
-   -  Added --extra-space argument to leave extra space after last partition
-   -  Added --no-fstab-update part option to allow using the stock fstab
+   -  Added ``--extra-space argument`` to leave extra space after last partition
+   -  Added ``--no-fstab-update`` part option to allow using the stock fstab
    -  bootimg-efi: added Unified Kernel Image option
    -  bootimg-pcbios: use label provided when formatting a DOS partition
 
 -  SDK-related enhancements:
 
-   -  Enable do_populate_sdk with multilibs
+   -  Enable :ref:`ref-tasks-populate_sdk` with multilibs
    -  New ``SDKPATHINSTALL`` variable decouples default install path from built in path to avoid rebuilding nativesdk components on e.g. :term:`DISTRO_VERSION` changes
    -  eSDK: Error if trying to generate an eSDK from a multiconfig
    -  eSDK: introduce :term:`TOOLCHAIN_HOST_TASK_ESDK` to be used in place of :term:`TOOLCHAIN_HOST_TASK` to add components to the host part of the eSDK
@@ -75,7 +75,7 @@ New Features / Enhancements in 3.4
 -  BitBake enhancements:
 
    -  New bitbake-getvar helper command to query a variable value (with history)
-   -  bitbake-layers: layerindex-fetch: add --fetchdir parameter
+   -  bitbake-layers: layerindex-fetch: add ``--fetchdir`` parameter
    -  bitbake-layers: show-recipes: add skip reason to output
    -  bitbake-diffsigs: sort diff output for consistency
    -  Allow setting upstream for local hash equivalence server
@@ -211,7 +211,7 @@ The following corrections have been made to the LICENSE values set by recipes:
 Other license-related notes:
 
 -  When creating recipes for Python software, recipetool will now treat "BSD" as "BSD-3-Clause" for the purposes of setting LICENSE, as that is the most common understanding.
--  Please be aware that an initramfs bundled with the kernel using :term:`INITRAMFS_IMAGE_BUNDLE` should only contain GPLv2-compatible software; this is now mentioned in the documentation.
+-  Please be aware that an :term:`Initramfs` bundled with the kernel using :term:`INITRAMFS_IMAGE_BUNDLE` should only contain GPLv2-compatible software; this is now mentioned in the documentation.
 
 Security Fixes in 3.4
 ~~~~~~~~~~~~~~~~~~~~~

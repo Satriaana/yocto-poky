@@ -1,9 +1,12 @@
 #
+# Copyright OpenEmbedded Contributors
+#
 # SPDX-License-Identifier: MIT
 #
 
 from oeqa.selftest.case import OESelftestTestCase
-from oeqa.utils.commands import runCmd, bitbake, get_bb_var, runqemu
+from oeqa.utils.commands import bitbake, runqemu
+from oeqa.core.decorator import OETestTag
 
 def getline_qemu(out, line):
     for l in out.split('\n'):
@@ -54,17 +57,35 @@ inherit overlayfs
 
         config = """
 IMAGE_INSTALL:append = " overlayfs-user"
-DISTRO_FEATURES += "systemd overlayfs"
+DISTRO_FEATURES:append = " systemd overlayfs"
 """
 
         self.write_config(config)
         self.add_overlay_conf_to_machine()
 
         res = bitbake('core-image-minimal', ignore_status=True)
-        line = getline(res, " Mount path /mnt/overlay not found in fstat and unit mnt-overlay.mount not found in systemd unit directories")
+        line = getline(res, " Mount path /mnt/overlay not found in fstab and unit mnt-overlay.mount not found in systemd unit directories")
         self.assertTrue(line and line.startswith("WARNING:"), msg=res.output)
         line = getline(res, "Not all mount paths and units are installed in the image")
         self.assertTrue(line and line.startswith("ERROR:"), msg=res.output)
+
+    def test_not_all_units_installed_but_qa_skipped(self):
+        """
+        Summary:   Test skipping the QA check
+        Expected:  Image is created successfully
+        Author:    Claudius Heine <ch@denx.de>
+        """
+
+        config = """
+IMAGE_INSTALL:append = " overlayfs-user"
+DISTRO_FEATURES += "systemd overlayfs"
+OVERLAYFS_QA_SKIP[mnt-overlay] = "mount-configured"
+"""
+
+        self.write_config(config)
+        self.add_overlay_conf_to_machine()
+
+        bitbake('core-image-minimal')
 
     def test_mount_unit_not_set(self):
         """
@@ -75,7 +96,7 @@ DISTRO_FEATURES += "systemd overlayfs"
 
         config = """
 IMAGE_INSTALL:append = " overlayfs-user"
-DISTRO_FEATURES += "systemd overlayfs"
+DISTRO_FEATURES:append = " systemd overlayfs"
 """
 
         self.write_config(config)
@@ -93,7 +114,7 @@ DISTRO_FEATURES += "systemd overlayfs"
 
         config = """
 IMAGE_INSTALL:append = " overlayfs-user"
-DISTRO_FEATURES += "systemd overlayfs"
+DISTRO_FEATURES:append = " systemd overlayfs"
 """
 
         wrong_machine_config = """
@@ -117,7 +138,7 @@ OVERLAYFS_MOUNT_POINT[usr-share-overlay] = "/usr/share/overlay"
 
         config = """
 IMAGE_INSTALL:append = " overlayfs-user systemd-machine-units"
-DISTRO_FEATURES += "systemd overlayfs"
+DISTRO_FEATURES:append = " systemd overlayfs"
 
 # Use systemd as init manager
 VIRTUAL-RUNTIME_init_manager = "systemd"
@@ -185,6 +206,7 @@ EOT
             line = getline_qemu(output, "upperdir=/mnt/overlay/upper/usr/share/another-overlay-mount")
             self.assertTrue(line and line.startswith("overlay"), msg=output)
 
+    @OETestTag("runqemu")
     def test_correct_image_fstab(self):
         """
         Summary:   Check that we can create an image when all parameters are
@@ -203,6 +225,7 @@ EOT
 
         self._test_correct_image('base-files', base_files_append)
 
+    @OETestTag("runqemu")
     def test_correct_image_unit(self):
         """
         Summary:   Check that we can create an image when all parameters are
@@ -238,6 +261,7 @@ EOT
 
         self._test_correct_image('systemd-machine-units', systemd_machine_unit_append)
 
+@OETestTag("runqemu")
 class OverlayFSEtcRunTimeTests(OESelftestTestCase):
     """overlayfs-etc class tests"""
 
@@ -249,7 +273,7 @@ class OverlayFSEtcRunTimeTests(OESelftestTestCase):
         """
 
         configBase = """
-DISTRO_FEATURES += "systemd"
+DISTRO_FEATURES:append = " systemd"
 
 # Use systemd as init manager
 VIRTUAL-RUNTIME_init_manager = "systemd"
@@ -291,7 +315,7 @@ OVERLAYFS_ETC_DEVICE = "/dev/mmcblk0p1"
         """
 
         config = """
-DISTRO_FEATURES += "systemd"
+DISTRO_FEATURES:append = " systemd"
 
 # Use systemd as init manager
 VIRTUAL-RUNTIME_init_manager = "systemd"
@@ -309,25 +333,15 @@ EXTRA_IMAGE_FEATURES += "package-management"
         self.assertTrue("overlayfs-etc" in res.output, msg=res.output)
         self.assertTrue("package-management" in res.output, msg=res.output)
 
-    def test_image_feature_is_missing_class_included(self):
-        configAppend = """
-INHERIT += "overlayfs-etc"
-"""
-        self.run_check_image_feature(configAppend)
-
     def test_image_feature_is_missing(self):
-        self.run_check_image_feature()
-
-    def run_check_image_feature(self, appendToConfig=""):
         """
         Summary:   Overlayfs-etc class is not applied when image feature is not set
-                   even if we inherit it directly,
         Expected:  Image is created successfully but /etc is not an overlay
         Author:    Vyacheslav Yurkov <uvv.mail@gmail.com>
         """
 
-        config = f"""
-DISTRO_FEATURES += "systemd"
+        config = """
+DISTRO_FEATURES:append = " systemd"
 
 # Use systemd as init manager
 VIRTUAL-RUNTIME_init_manager = "systemd"
@@ -342,7 +356,6 @@ EXTRA_IMAGE_FEATURES += "read-only-rootfs"
 # Image configuration for overlayfs-etc
 OVERLAYFS_ETC_MOUNT_POINT = "/data"
 OVERLAYFS_ETC_DEVICE = "/dev/sda3"
-{appendToConfig}
 """
 
         self.write_config(config)
@@ -368,28 +381,7 @@ OVERLAYFS_ETC_DEVICE = "/dev/sda3"
         Author:    Vyacheslav Yurkov <uvv.mail@gmail.com>
         """
 
-        config = """
-DISTRO_FEATURES += "systemd"
-
-# Use systemd as init manager
-VIRTUAL-RUNTIME_init_manager = "systemd"
-
-# enable overlayfs in the kernel
-KERNEL_EXTRA_FEATURES:append = " features/overlayfs/overlayfs.scc"
-
-IMAGE_FSTYPES += "wic"
-OVERLAYFS_INIT_OPTION = "{OVERLAYFS_INIT_OPTION}"
-WKS_FILE = "overlayfs_etc.wks.in"
-
-EXTRA_IMAGE_FEATURES += "read-only-rootfs"
-# Image configuration for overlayfs-etc
-EXTRA_IMAGE_FEATURES += "overlayfs-etc"
-IMAGE_FEATURES:remove = "package-management"
-OVERLAYFS_ETC_MOUNT_POINT = "/data"
-OVERLAYFS_ETC_FSTYPE = "ext4"
-OVERLAYFS_ETC_DEVICE = "/dev/sda3"
-OVERLAYFS_ETC_USE_ORIG_INIT_NAME = "{OVERLAYFS_ETC_USE_ORIG_INIT_NAME}"
-"""
+        config = self.get_working_config()
 
         args = {
             'OVERLAYFS_INIT_OPTION': "" if origInit else "init=/sbin/preinit",
@@ -410,6 +402,11 @@ OVERLAYFS_ETC_USE_ORIG_INIT_NAME = "{OVERLAYFS_ETC_USE_ORIG_INIT_NAME}"
             line = getline_qemu(output, "upperdir=/data/overlay-etc/upper")
             self.assertTrue(line and line.startswith("/data/overlay-etc/upper on /etc type overlay"), msg=output)
 
+            # check that lower layer is not available
+            status, output = qemu.run_serial("ls -1 /data/overlay-etc/lower")
+            line = getline_qemu(output, "No such file or directory")
+            self.assertTrue(line, msg=output)
+
             status, output = qemu.run_serial("touch " + testFile)
             status, output = qemu.run_serial("sync")
             status, output = qemu.run_serial("ls -1 " + testFile)
@@ -421,3 +418,65 @@ OVERLAYFS_ETC_USE_ORIG_INIT_NAME = "{OVERLAYFS_ETC_USE_ORIG_INIT_NAME}"
             status, output = qemu.run_serial("ls -1 " + testFile)
             line = getline_qemu(output, testFile)
             self.assertTrue(line and line.startswith(testFile), msg=output)
+
+    def test_lower_layer_access(self):
+        """
+        Summary:   Test that lower layer of /etc is available read-only when configured
+        Expected:  Can't write to lower layer. The files on lower and upper different after
+                   modification
+        Author:    Vyacheslav Yurkov <uvv.mail@gmail.com>
+        """
+
+        config = self.get_working_config()
+
+        configLower = """
+OVERLAYFS_ETC_EXPOSE_LOWER = "1"
+IMAGE_INSTALL:append = " overlayfs-user"
+"""
+        testFile = "lower-layer-test.txt"
+
+        args = {
+            'OVERLAYFS_INIT_OPTION': "",
+            'OVERLAYFS_ETC_USE_ORIG_INIT_NAME': 1
+        }
+
+        self.write_config(config.format(**args))
+
+        self.append_config(configLower)
+        bitbake('core-image-minimal')
+
+        with runqemu('core-image-minimal', image_fstype='wic') as qemu:
+            status, output = qemu.run_serial("echo \"Modified in upper\" > /etc/" + testFile)
+            status, output = qemu.run_serial("diff /etc/" + testFile + " /data/overlay-etc/lower/" + testFile)
+            line = getline_qemu(output, "Modified in upper")
+            self.assertTrue(line, msg=output)
+            line = getline_qemu(output, "Original file")
+            self.assertTrue(line, msg=output)
+
+            status, output = qemu.run_serial("touch /data/overlay-etc/lower/ro-test.txt")
+            line = getline_qemu(output, "Read-only file system")
+            self.assertTrue(line, msg=output)
+
+    def get_working_config(self):
+        return """
+DISTRO_FEATURES:append = " systemd"
+
+# Use systemd as init manager
+VIRTUAL-RUNTIME_init_manager = "systemd"
+
+# enable overlayfs in the kernel
+KERNEL_EXTRA_FEATURES:append = " features/overlayfs/overlayfs.scc"
+
+IMAGE_FSTYPES += "wic"
+OVERLAYFS_INIT_OPTION = "{OVERLAYFS_INIT_OPTION}"
+WKS_FILE = "overlayfs_etc.wks.in"
+
+EXTRA_IMAGE_FEATURES += "read-only-rootfs"
+# Image configuration for overlayfs-etc
+EXTRA_IMAGE_FEATURES += "overlayfs-etc"
+IMAGE_FEATURES:remove = "package-management"
+OVERLAYFS_ETC_MOUNT_POINT = "/data"
+OVERLAYFS_ETC_FSTYPE = "ext4"
+OVERLAYFS_ETC_DEVICE = "/dev/sda3"
+OVERLAYFS_ETC_USE_ORIG_INIT_NAME = "{OVERLAYFS_ETC_USE_ORIG_INIT_NAME}"
+"""

@@ -1,8 +1,8 @@
 .. SPDX-License-Identifier: CC-BY-SA-2.0-UK
 
-************************************************
-Board Support Packages (BSP) - Developer's Guide
-************************************************
+**************************************************
+Board Support Packages (BSP) --- Developer's Guide
+**************************************************
 
 A Board Support Package (BSP) is a collection of information that
 defines how to support a particular hardware device, set of devices, or
@@ -725,6 +725,7 @@ workflow.
 
 .. image:: figures/bsp-dev-flow.png
    :align: center
+   :width: 70%
 
 #. *Set up Your Host Development System to Support Development Using the
    Yocto Project*: See the ":ref:`dev-manual/start:preparing the build host`"

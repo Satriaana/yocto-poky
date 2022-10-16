@@ -52,7 +52,7 @@ A development host or :term:`Build Host` is key to
 using the Yocto Project. Because the goal of the Yocto Project is to
 develop images or applications that run on embedded hardware,
 development of those images and applications generally takes place on a
-system not intended to run the software - the development host.
+system not intended to run the software --- the development host.
 
 You need to set up a development host in order to use it with the Yocto
 Project. Most find that it is best to have a native Linux machine
@@ -176,7 +176,7 @@ development:
    repositories for each of these areas.
 
    .. image:: figures/source-repos.png
-      :align: center
+      :width: 100%
 
    For steps on how to view and access these upstream Git repositories,
    see the ":ref:`dev-manual/start:accessing source repositories`"
@@ -191,6 +191,7 @@ development:
 
    .. image:: figures/index-downloads.png
       :align: center
+      :width: 50%
 
    For steps on how to view and access these files, see the
    ":ref:`dev-manual/start:accessing index of releases`"
@@ -205,7 +206,7 @@ development:
    :yocto_dl:`Index of /releases: </releases>` area.
 
    .. image:: figures/yp-download.png
-      :align: center
+      :width: 100%
 
    For steps on how to use the "DOWNLOADS" page, see the
    ":ref:`dev-manual/start:using the downloads page`"
@@ -427,7 +428,7 @@ other branches represent offshoots of the "master" branch.
 When you create a local copy of a Git repository, the copy has the same
 set of branches as the original. This means you can use Git to create a
 local working area (also called a branch) that tracks a specific
-development branch from the upstream source Git repository. in other
+development branch from the upstream source Git repository. In other
 words, you can define your local Git environment to work on any
 development branch in the repository. To help illustrate, consider the
 following example Git commands::
@@ -550,11 +551,11 @@ descriptions and strategies on how to use these commands:
    You need to be in a local branch other than the one you are deleting
    in order to delete branch-name.
 
--  *git pull --rebase:* Retrieves information from an upstream Git
+-  *git pull \-\-rebase*: Retrieves information from an upstream Git
    repository and places it in your local Git repository. You use this
    command to make sure you are synchronized with the repository from
    which you are basing changes (e.g. the "&DISTRO_NAME_NO_CAP;"
-   branch). The "--rebase" option ensures that any local commits you
+   branch). The ``--rebase`` option ensures that any local commits you
    have in your branch are preserved at the top of your local branch.
 
 -  *git push repo-name local-branch:upstream-branch:* Sends
@@ -616,13 +617,9 @@ this history, you can find basic information here:
 In general, the Yocto Project is broadly licensed under the
 Massachusetts Institute of Technology (MIT) License. MIT licensing
 permits the reuse of software within proprietary software as long as the
-license is distributed with that software. MIT is also compatible with
-the GNU General Public License (GPL). Patches to the Yocto Project
+license is distributed with that software. Patches to the Yocto Project
 follow the upstream licensing scheme. You can find information on the
-MIT license
-`here <https://www.opensource.org/licenses/mit-license.php>`__. You can
-find information on the GNU GPL
-`here <https://www.opensource.org/licenses/LGPL-3.0>`__.
+MIT license `here <https://en.wikipedia.org/wiki/MIT_License>`__.
 
 When you build an image using the Yocto Project, the build process uses
 a known list of licenses to ensure compliance. You can find this list in

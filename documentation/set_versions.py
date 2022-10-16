@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 #
 # Add version information to poky.yaml based upon current git branch/tags
+# Also generate the list of available manuals (releases.rst file)
 #
 # Copyright Linux Foundation
 # Author: Richard Purdie <richard.purdie@linuxfoundation.org>
+# Author: Quentin Schulz <foss@0leil.net>
 #
 # SPDX-License-Identifier: MIT
 #
@@ -14,6 +16,7 @@ import collections
 import sys
 import os
 import itertools
+import re
 
 ourversion = None
 if len(sys.argv) == 2:
@@ -23,13 +26,17 @@ ourversion = None
 if len(sys.argv) == 2:
     ourversion = sys.argv[1]
 
-activereleases = ["honister", "hardknott", "gatesgarth", "dunfell", "zeus", "warrior"]
-#devbranch = "langdale"
-devbranch = "kirkstone"
+activereleases = ["kirkstone", "dunfell"]
+devbranch = "langdale"
 ltsseries = ["kirkstone", "dunfell"]
 
+# used by run-docs-builds to get the default page
+if ourversion == "getlatest":
+    print(activereleases[0])
+    sys.exit(0)
+
 release_series = collections.OrderedDict()
-#release_series["langdale"] = "4.1"
+release_series["langdale"] = "4.1"
 release_series["kirkstone"] = "4.0"
 release_series["honister"] = "3.4"
 release_series["hardknott"] = "3.3"
@@ -57,8 +64,8 @@ release_series["bernard"] = "1.0"
 release_series["laverne"] = "0.9"
 
 
-#    "langdale" : "2.2",
 bitbake_mapping = {
+    "langdale" : "2.2",
     "kirkstone" : "2.0",
     "honister" : "1.52",
     "hardknott" : "1.50",
@@ -82,7 +89,7 @@ docconfver = None
 
 # Test tags exist and inform the user to fetch if not
 try:
-    subprocess.run(["git", "show", "yocto-3.4.2"], capture_output=True, check=True)
+    subprocess.run(["git", "show", "yocto-%s" % release_series[activereleases[0]]], capture_output=True, check=True)
 except subprocess.CalledProcessError:
     sys.exit("Please run 'git fetch --tags' before building the documentation")
 
@@ -128,7 +135,7 @@ else:
     if branch == "master":
         ourseries = devbranch
         docconfver = "dev"
-        bitbakeversion = ""
+        bitbakeversion = "dev"
     elif branch in release_series:
         ourseries = branch
         if branch in bitbake_mapping:
@@ -199,31 +206,105 @@ if os.path.exists("poky.yaml.in"):
 #  - current doc version
 # (with duplicates removed)
 
-if ourseries not in activereleases:
-    activereleases.append(ourseries)
-
 versions = []
 with open("sphinx-static/switchers.js.in", "r") as r, open("sphinx-static/switchers.js", "w") as w:
     lines = r.readlines()
     for line in lines:
+        if "ALL_RELEASES_PLACEHOLDER" in line:
+            w.write(str(list(release_series.keys())))
+            continue
         if "VERSIONS_PLACEHOLDER" in line:
-            w.write("    'dev': 'dev (%s)',\n" % release_series[devbranch])
-            for branch in activereleases:
+            w.write("    'dev': { 'title': 'Unstable (dev)', 'obsolete': false,},\n")
+            for branch in activereleases + ([ourseries] if ourseries not in activereleases else []):
                 if branch == devbranch:
                     continue
-                versions = subprocess.run('git tag --list yocto-%s*' % (release_series[branch]), shell=True, capture_output=True, text=True).stdout.split()
-                versions = sorted([v.replace("yocto-" +  release_series[branch] + ".", "").replace("yocto-" +  release_series[branch], "0") for v in versions], key=int)
-                if not versions:
+                branch_versions = subprocess.run('git tag --list yocto-%s*' % (release_series[branch]), shell=True, capture_output=True, text=True).stdout.split()
+                branch_versions = sorted([v.replace("yocto-" +  release_series[branch] + ".", "").replace("yocto-" +  release_series[branch], "0") for v in branch_versions], key=int)
+                if not branch_versions:
                     continue
                 version = release_series[branch]
-                if versions[-1] != "0":
-                    version = version + "." + versions[-1]
+                if branch_versions[-1] != "0":
+                    version = version + "." + branch_versions[-1]
                 versions.append(version)
-                w.write("    '%s': '%s',\n" % (version, version))
+                w.write("    '%s': {'title': '%s (%s)', 'obsolete': %s,},\n" % (version, branch.capitalize(), version, str(branch not in activereleases).lower()))
             if ourversion not in versions and ourseries != devbranch:
-                w.write("    '%s': '%s',\n" % (ourversion, ourversion))
+                w.write("    '%s': {'title': '%s (%s)', 'obsolete': %s,},\n" % (ourversion, ourseries.capitalize(), ourversion, str(ourseries not in activereleases).lower()))
         else:
             w.write(line)
 
 print("switchers.js generated from switchers.js.in")
 
+# generate releases.rst
+
+# list missing tags in yocto-docs
+missing_tags = [
+        'yocto-0.9',
+        'yocto-1.0', 'yocto-1.0.1',
+        'yocto-1.1', 'yocto-1.1.1',
+        'yocto-1.2',
+        'yocto-1.4.4', 'yocto-1.4.5',
+        'yocto-1.5', 'yocto-1.5.2', 'yocto-1.5.3', 'yocto-1.5.4',
+        'yocto-1.6', 'yocto-1.6.1', 'yocto-1.6.2',
+        'yocto-1.7', 'yocto-1.7.1',
+        'yocto-1.9',
+        'yocto-2.5.3',
+        'yocto-3.1', 'yocto-3.1.1', 'yocto-3.1.2', 'yocto-3.1.3',
+        ]
+
+semver = re.compile(r'yocto-(\d+)\.(\d+)(?:\.)?(\d*)')
+
+# git is able to properly order semver versions but not python
+# instead of adding a dependency on semver module, let's convert the version
+# into a decimal number, e.g. 11.23.1 will be 112301 and 1.5 will be 010500 so
+# it can be used as a key for the sorting algorithm.
+# This can be removed once all the old tags are re-created.
+def tag_to_semver_like(v):
+    v_semver = semver.search(v)
+    v_maj, v_min, v_patch = v_semver.groups('0')
+    return int("{:0>2}{:0>2}{:0>2}".format(v_maj, v_min, v_patch), 10)
+
+yocto_tags = subprocess.run(["git", "tag", "--list", "--sort=version:refname", "yocto-*"], capture_output=True, text=True).stdout
+yocto_tags = sorted(yocto_tags.split() + missing_tags, key=tag_to_semver_like)
+tags = [tag[6:] for tag in yocto_tags]
+
+with open('releases.rst', 'w') as f:
+    f.write('===========================\n')
+    f.write(' Supported Release Manuals\n')
+    f.write('===========================\n')
+    f.write('\n')
+
+    for activerelease in activereleases:
+        title = "Release Series %s (%s)" % (release_series[activerelease], activerelease)
+        f.write('*' * len(title) + '\n')
+        f.write(title + '\n')
+        f.write('*' * len(title) + '\n')
+        f.write('\n')
+
+        for tag in tags:
+            if tag == release_series[activerelease] or tag.startswith('%s.' % release_series[activerelease]):
+                f.write('- :yocto_docs:`%s Documentation </%s>`\n' % (tag, tag))
+        f.write('\n')
+
+    f.write('==========================\n')
+    f.write(' Outdated Release Manuals\n')
+    f.write('==========================\n')
+    f.write('\n')
+
+    for series in release_series:
+        if series == devbranch or series in activereleases:
+            continue
+
+        if series == "jethro-pre":
+            continue
+
+        title = "Release Series %s (%s)" % (release_series[series], series)
+        f.write('*' * len(title) + '\n')
+        f.write(title + '\n')
+        f.write('*' * len(title) + '\n')
+        f.write('\n')
+        if series == "jethro":
+            f.write('- :yocto_docs:`1.9 Documentation </1.9>`\n')
+        for tag in tags:
+            if tag == release_series[series] or tag.startswith('%s.' % release_series[series]):
+                f.write('- :yocto_docs:`%s Documentation </%s>`\n' % (tag, tag))
+        f.write('\n')

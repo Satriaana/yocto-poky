@@ -47,7 +47,7 @@ splitting out of debug symbols during packaging).
    even if the recipes do not produce architecture-specific output.
 
    Configuring such recipes for all architectures causes the
-   ``do_package_write_*`` tasks to
+   :ref:`do_package_write_* <ref-tasks-package_write_deb>` tasks to
    have different signatures for the machines with different tunings.
    Additionally, unnecessary rebuilds occur every time an image for a
    different :term:`MACHINE` is built even when the recipe never changes.
@@ -78,7 +78,8 @@ about the variable flags (varflags) that help control archive creation.
 ``autotools*.bbclass``
 ======================
 
-The ``autotools*`` classes support Autotooled packages.
+The ``autotools*`` classes support packages built with the
+`GNU Autotools <https://en.wikipedia.org/wiki/GNU_Autotools>`__.
 
 The ``autoconf``, ``automake``, and ``libtool`` packages bring
 standardization. This class defines a set of tasks (e.g. ``configure``,
@@ -107,18 +108,18 @@ support is either not present or is broken.
 It's useful to have some idea of how the tasks defined by the
 ``autotools*`` classes work and what they do behind the scenes.
 
--  :ref:`ref-tasks-configure` - Regenerates the
+-  :ref:`ref-tasks-configure` --- regenerates the
    configure script (using ``autoreconf``) and then launches it with a
    standard set of arguments used during cross-compilation. You can pass
    additional parameters to ``configure`` through the :term:`EXTRA_OECONF`
    or :term:`PACKAGECONFIG_CONFARGS`
    variables.
 
--  :ref:`ref-tasks-compile` - Runs ``make`` with
+-  :ref:`ref-tasks-compile` --- runs ``make`` with
    arguments that specify the compiler and linker. You can pass
    additional arguments through the :term:`EXTRA_OEMAKE` variable.
 
--  :ref:`ref-tasks-install` - Runs ``make install`` and
+-  :ref:`ref-tasks-install` --- runs ``make install`` and
    passes in ``${``\ :term:`D`\ ``}`` as ``DESTDIR``.
 
 .. _ref-classes-base:
@@ -443,7 +444,7 @@ staging the files from :term:`DEPLOYDIR` to :term:`DEPLOY_DIR_IMAGE`.
 ``devshell.bbclass``
 ====================
 
-The ``devshell`` class adds the ``do_devshell`` task. Distribution
+The ``devshell`` class adds the :ref:`ref-tasks-devshell` task. Distribution
 policy dictates whether to include this class. See the ":ref:`dev-manual/common-tasks:using a development shell`"
 section in the Yocto Project Development Tasks Manual for more
 information about using ``devshell``.
@@ -576,6 +577,14 @@ Finally, here is an example that sets the root password::
        usermod -p '${PASSWD}' root; \
        "
 
+.. note::
+
+   From a security perspective, hardcoding a default password is not
+   generally a good idea or even legal in some jurisdictions. It is
+   recommended that you do not do this if you are building a production
+   image.
+
+
 .. _ref-classes-features_check:
 
 ``features_check.bbclass``
@@ -601,22 +610,6 @@ If any conditions specified in the recipe using the above
 variables are not met, the recipe will be skipped, and if the
 build system attempts to build the recipe then an error will be
 triggered.
-
-.. _ref-classes-flit_core:
-
-``flit_core.bbclass``
-=====================
-
-The ``flit_core`` class enables building Python modules which declare
-the  `PEP-517 <https://www.python.org/dev/peps/pep-0517/>`__ compliant
-``flit_core.buildapi`` ``build-backend`` in the ``[build-system]``
-section of ``pyproject.toml`` (See `PEP-518 <https://www.python.org/dev/peps/pep-0518/>`__).
-
-Python modules built with ``flit_core.buildapi`` are pure Python (no
-``C`` or ``Rust`` extensions).
-
-The resulting ``wheel`` (See `PEP-427 <https://www.python.org/dev/peps/pep-0427/>`__)
-is installed with the :ref:`python_pep517 <ref-classes-python_pep517>` class.
 
 .. _ref-classes-fontcache:
 
@@ -799,7 +792,7 @@ The class stages directories with symlinks from ``gcc`` and ``g++`` to
 ``icecc``, for both native and cross compilers. Depending on each
 configure or compile, the OpenEmbedded build system adds the directories
 at the head of the ``PATH`` list and then sets the ``ICECC_CXX`` and
-``ICEC_CC`` variables, which are the paths to the ``g++`` and ``gcc``
+``ICECC_CC`` variables, which are the paths to the ``g++`` and ``gcc``
 compilers, respectively.
 
 For the cross compiler, the class creates a ``tar.gz`` file that
@@ -807,8 +800,8 @@ contains the Yocto Project toolchain and sets ``ICECC_VERSION``, which
 is the version of the cross-compiler used in the cross-development
 toolchain, accordingly.
 
-The class handles all three different compile stages (i.e native
-,cross-kernel and target) and creates the necessary environment
+The class handles all three different compile stages (i.e native,
+cross-kernel and target) and creates the necessary environment
 ``tar.gz`` file to be used by the remote machines. The class also
 supports SDK generation.
 
@@ -818,12 +811,13 @@ using ``which``. If :term:`ICECC_ENV_EXEC` is set
 in your ``local.conf`` file, the variable should point to the
 ``icecc-create-env`` script provided by the user. If you do not point to
 a user-provided script, the build system uses the default script
-provided by the recipe ``icecc-create-env-native.bb``.
+provided by the recipe :oe_git:`icecc-create-env_0.1.bb
+</openembedded-core/tree/meta/recipes-devtools/icecc-create-env/icecc-create-env_0.1.bb>`.
 
 .. note::
 
    This script is a modified version and not the one that comes with
-   icecc.
+   ``icecream``.
 
 If you do not want the Icecream distributed compile support to apply to
 specific recipes or classes, you can ask them to be ignored by Icecream
@@ -1048,6 +1042,11 @@ Here are the tests you can list with the :term:`WARN_QA` and
    cases, such as dynamically loaded modules, these symlinks
    are needed instead in the main package.
 
+-  ``empty-dirs:`` Checks that packages are not installing files to
+   directories that are normally expected to be empty (such as ``/tmp``)
+   The list of directories that are checked is specified by the
+   :term:`QA_EMPTY_DIRS` variable.
+
 -  ``file-rdeps:`` Checks that file-level dependencies identified by
    the OpenEmbedded build system at packaging time are satisfied. For
    example, a shell script might start with the line ``#!/bin/bash``.
@@ -1082,12 +1081,12 @@ Here are the tests you can list with the :term:`WARN_QA` and
    might result in host contamination of the build output.
 
 -  ``installed-vs-shipped:`` Reports when files have been installed
-   within ``do_install`` but have not been included in any package by
+   within :ref:`ref-tasks-install` but have not been included in any package by
    way of the :term:`FILES` variable. Files that do not
    appear in any package cannot be present in an image later on in the
    build process. Ideally, all installed files should be packaged or not
    installed at all. These files can be deleted at the end of
-   ``do_install`` if the files are not needed in any package.
+   :ref:`ref-tasks-install` if the files are not needed in any package.
 
 -  ``invalid-chars:`` Checks that the recipe metadata variables
    :term:`DESCRIPTION`,
@@ -1257,9 +1256,9 @@ package installs all packages with modules and various other kernel
 packages such as ``kernel-vmlinux``.
 
 The ``kernel`` class contains logic that allows you to embed an initial
-RAM filesystem (initramfs) image when you build the kernel image. For
-information on how to build an initramfs, see the
-":ref:`dev-manual/common-tasks:building an initial ram filesystem (initramfs) image`" section in
+RAM filesystem (:term:`Initramfs`) image when you build the kernel image. For
+information on how to build an :term:`Initramfs`, see the
+":ref:`dev-manual/common-tasks:building an initial ram filesystem (Initramfs) image`" section in
 the Yocto Project Development Tasks Manual.
 
 Various other classes are used by the ``kernel`` and ``module`` classes
@@ -1340,7 +1339,7 @@ Only a single U-boot boot script can be added to the FIT image created by
 ``kernel-fitimage`` and the boot script is optional.
 The boot script is specified in the ITS file as a text file containing
 U-boot commands. When using a boot script the user should configure the
-U-boot ``do_install`` task to copy the script to sysroot.
+U-boot :ref:`ref-tasks-install` task to copy the script to sysroot.
 So the script can be included in the FIT image by the ``kernel-fitimage``
 class. At run-time, U-boot CONFIG_BOOTCOMMAND define can be configured to
 load the boot script from the FIT image and executes it.
@@ -1978,20 +1977,46 @@ When inherited by a recipe, the ``perlnative`` class supports using the
 native version of Perl built by the build system rather than using the
 version provided by the build host.
 
+.. _ref-classes-python_flit_core:
+
+``python_flit_core.bbclass``
+============================
+
+The ``python_flit_core`` class enables building Python modules which declare
+the  `PEP-517 <https://www.python.org/dev/peps/pep-0517/>`__ compliant
+``flit_core.buildapi`` ``build-backend`` in the ``[build-system]``
+section of ``pyproject.toml`` (See `PEP-518 <https://www.python.org/dev/peps/pep-0518/>`__).
+
+Python modules built with ``flit_core.buildapi`` are pure Python (no
+``C`` or ``Rust`` extensions).
+
+Internally this uses the :ref:`python_pep517 <ref-classes-python_pep517>` class.
+
 .. _ref-classes-python_pep517:
 
 ``python_pep517.bbclass``
-=============================
+=========================
 
-The ``python_pep517`` class installs a Python ``wheel`` binary archive (see
-`PEP-517 <https://peps.python.org/pep-0517/>`__).
+The ``python_pep517`` class builds and installs a Python ``wheel`` binary
+archive (see `PEP-517 <https://peps.python.org/pep-0517/>`__).
 
-The Python ``wheel`` can be built with several classes, including :ref:`flit_core <ref-classes-flit_core>`,
-:ref:`setuptools_build_meta <ref-classes-setuptools_build_meta>`, and :ref:`setuptools3 <ref-classes-setuptools3>`.
+Recipes wouldn't inherit this directly, instead typically another class will
+inherit this and add the relevant native dependencies.
 
-The path to the wheel to be installed is defined by :term:`PEP517_WHEEL_PATH`.
-This defaults to ``${D}/dist`` and should be respected by the builder class
-(such as :ref:`flit_core <ref-classes-flit_core>`).
+Examples of classes which do this are :ref:`python_flit_core
+<ref-classes-python_flit_core>`, :ref:`python_setuptools_build_meta
+<ref-classes-python_setuptools_build_meta>`, and :ref:`python_poetry_core
+<ref-classes-python_poetry_core>`.
+
+.. _ref-classes-python_poetry_core:
+
+``python_poetry_core.bbclass``
+==============================
+
+The ``python_poetry_core`` class enables building Python modules which use the
+`Poetry Core <https://python-poetry.org>`__ build system.
+
+Internally this uses the :ref:`python_pep517 <ref-classes-python_pep517>` class.
 
 .. _ref-classes-pixbufcache:
 
@@ -2348,12 +2373,12 @@ additional configuration options you want to pass SCons command line.
 The ``sdl`` class supports recipes that need to build software that uses
 the Simple DirectMedia Layer (SDL) library.
 
-.. _ref-classes-setuptools_build_meta:
+.. _ref-classes-python_setuptools_build_meta:
 
-``setuptools_build_meta.bbclass``
-=================================
+``python_setuptools_build_meta.bbclass``
+========================================
 
-The ``setuptools_build_meta`` class enables building Python modules which
+The ``python_setuptools_build_meta`` class enables building Python modules which
 declare the
 `PEP-517 <https://www.python.org/dev/peps/pep-0517/>`__ compliant
 ``setuptools.build_meta`` ``build-backend`` in the ``[build-system]``
@@ -2362,8 +2387,7 @@ section of ``pyproject.toml`` (See `PEP-518 <https://www.python.org/dev/peps/pep
 Python modules built with ``setuptools.build_meta`` can be pure Python or
 include ``C`` or ``Rust`` extensions).
 
-The resulting ``wheel`` (See `PEP-427 <https://www.python.org/dev/peps/pep-0427/>`__)
-is installed with the :ref:`python_pep517 <ref-classes-python_pep517>` class.
+Internally this uses the :ref:`python_pep517 <ref-classes-python_pep517>` class.
 
 .. _ref-classes-setuptools3:
 
@@ -2377,7 +2401,7 @@ uses these build systems, the recipe needs to inherit the ``setuptools3`` class.
 
    .. note::
 
-      The ``setuptools3`` class ``do_compile()`` task now calls
+      The ``setuptools3`` class :ref:`ref-tasks-compile` task now calls
       ``setup.py bdist_wheel`` to build the ``wheel`` binary archive format
       (See `PEP-427 <https://www.python.org/dev/peps/pep-0427/>`__).
 
@@ -2388,7 +2412,7 @@ uses these build systems, the recipe needs to inherit the ``setuptools3`` class.
 
    .. note::
 
-     The ``setuptools3`` class ``do_install()`` task now installs the ``wheel``
+     The ``setuptools3`` class :ref:`ref-tasks-install` task now installs the ``wheel``
      binary archive. In current versions of ``setuptools`` the legacy ``setup.py
      install`` method is deprecated. If the ``setup.py`` cannot be used with
      wheels, for example it creates files outside of the Python module or
@@ -2503,7 +2527,7 @@ stages:
    want to share with other recipes that have dependencies on the
    originating recipe. Normally these dependencies are installed through
    the :ref:`ref-tasks-install` task into
-   ``${``\ :term:`D`\ ``}``. The ``do_populate_sysroot`` task
+   ``${``\ :term:`D`\ ``}``. The :ref:`ref-tasks-populate_sysroot` task
    copies a subset of these files into ``${SYSROOT_DESTDIR}``. This
    subset of files is controlled by the
    :term:`SYSROOT_DIRS`,

@@ -11,18 +11,17 @@ RSUGGESTS:${PN} = "diffutils"
 
 LICENSE = "Vim"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=6b30ea4fa660c483b619924bc709ef99 \
-                    file://runtime/doc/uganda.txt;md5=a3f193c20c6faff93c69185d5d070535"
+                    file://runtime/doc/uganda.txt;md5=001ef779f422a0e9106d428c84495b4d"
 
 SRC_URI = "git://github.com/vim/vim.git;branch=master;protocol=https \
            file://disable_acl_header_check.patch \
            file://vim-add-knob-whether-elf.h-are-checked.patch \
            file://0001-src-Makefile-improve-reproducibility.patch \
            file://no-path-adjust.patch \
-           file://racefix.patch \
            "
 
-PV .= ".4524"
-SRCREV = "d8f8629b1bf566e1dada7515e9b146c69e5d9757"
+PV .= ".0598"
+SRCREV = "8279af514ca7e5fd3c31cf13b0864163d1a0bfeb"
 
 # Remove when 8.3 is out
 UPSTREAM_VERSION_UNKNOWN = "1"
@@ -94,6 +93,10 @@ EXTRA_OECONF = " \
     vim_cv_tty_group=world \
     STRIP=/bin/true \
 "
+
+# Some host distros don't have it, disable consistently
+EXTRA_OECONF:append:class-native = " vim_cv_timer_create=no"
+EXTRA_OECONF:append:class-target = " vim_cv_timer_create=yes"
 
 do_install() {
     autotools_do_install

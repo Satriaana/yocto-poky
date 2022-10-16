@@ -653,39 +653,6 @@ For help on the BitBake layer management tool, use the following
 command::
 
    $ bitbake-layers --help
-   NOTE: Starting bitbake server...
-   usage: bitbake-layers [-d] [-q] [-F] [--color COLOR] [-h] <subcommand> ...
-
-   BitBake layers utility
-
-   optional arguments:
-     -d, --debug           Enable debug output
-     -q, --quiet           Print only errors
-     -F, --force           Force add without recipe parse verification
-     --color COLOR         Colorize output (where COLOR is auto, always, never)
-     -h, --help            show this help message and exit
-
-   subcommands:
-     <subcommand>
-       layerindex-fetch    Fetches a layer from a layer index along with its
-                           dependent layers, and adds them to conf/bblayers.conf.
-       layerindex-show-depends
-                           Find layer dependencies from layer index.
-       add-layer           Add one or more layers to bblayers.conf.
-       remove-layer        Remove one or more layers from bblayers.conf.
-       flatten             flatten layer configuration into a separate output
-                           directory.
-       show-layers         show current configured layers.
-       show-overlayed      list overlayed recipes (where the same recipe exists
-                           in another layer)
-       show-recipes        list available recipes, showing the layer they are
-                           provided by
-       show-appends        list bbappend files and recipe files they apply to
-       show-cross-depends  Show dependencies between recipes that cross layer
-                           boundaries.
-       create-layer        Create a basic layer
-
-   Use bitbake-layers <subcommand> --help to get help on a specific command
 
 The following list describes the available commands:
 
@@ -759,7 +726,17 @@ The following list describes the available commands:
 -  ``layerindex-show-depends``: Finds layer dependencies from the
    layer index.
 
+-  ``save-build-conf``: Saves the currently active build configuration
+   (``conf/local.conf``, ``conf/bblayers.conf``) as a template into a layer.
+   This template can later be used for setting up builds via :term:``TEMPLATECONF``.
+   For information about saving and using configuration templates, see
+   ":ref:`dev-manual/common-tasks:creating a custom template configuration directory`".
+
 -  ``create-layer``: Creates a basic layer.
+
+-  ``create-layers-setup``: Writes out a configuration file and/or a script that
+   can replicate the directory structure and revisions of the layers in a current build.
+   For more information, see ":ref:`dev-manual/common-tasks:saving and restoring the layers setup`".
 
 Creating a General Layer Using the ``bitbake-layers`` Script
 ------------------------------------------------------------
@@ -879,6 +856,62 @@ enables the build system to locate the layer during the build.
 
    During a build, the OpenEmbedded build system looks in the layers
    from the top of the list down to the bottom in that order.
+
+Saving and restoring the layers setup
+-------------------------------------
+
+Once you have a working build with the correct set of layers, it is beneficial
+to capture the layer setup --- what they are, which repositories they come from
+and which SCM revisions they're at --- into a configuration file, so that this
+setup can be easily replicated later, perhaps on a different machine. Here's
+how to do this::
+
+   $ bitbake-layers create-layers-setup /srv/work/alex/meta-alex/
+   NOTE: Starting bitbake server...
+   NOTE: Created /srv/work/alex/meta-alex/setup-layers.json
+   NOTE: Created /srv/work/alex/meta-alex/setup-layers
+
+The tool needs a single argument which tells where to place the output, consisting
+of a json formatted layer configuration, and a ``setup-layers`` script that can use that configuration
+to restore the layers in a different location, or on a different host machine. The argument
+can point to a custom layer (which is then deemed a "bootstrap" layer that needs to be
+checked out first), or into a completely independent location.
+
+The replication of the layers is performed by running the ``setup-layers`` script provided
+above:
+
+1. Clone the bootstrap layer or some other repository to obtain
+   the json config and the setup script that can use it.
+
+2. Run the script directly with no options::
+
+      alex@Zen2:/srv/work/alex/my-build$ meta-alex/setup-layers
+      Note: not checking out source meta-alex, use --force-bootstraplayer-checkout to override.
+
+      Setting up source meta-intel, revision 15.0-hardknott-3.3-310-g0a96edae, branch master
+      Running 'git init -q /srv/work/alex/my-build/meta-intel'
+      Running 'git remote remove origin > /dev/null 2>&1; git remote add origin git://git.yoctoproject.org/meta-intel' in /srv/work/alex/my-build/meta-intel
+      Running 'git fetch -q origin || true' in /srv/work/alex/my-build/meta-intel
+      Running 'git checkout -q 0a96edae609a3f48befac36af82cf1eed6786b4a' in /srv/work/alex/my-build/meta-intel
+
+      Setting up source poky, revision 4.1_M1-372-g55483d28f2, branch akanavin/setup-layers
+      Running 'git init -q /srv/work/alex/my-build/poky'
+      Running 'git remote remove origin > /dev/null 2>&1; git remote add origin git://git.yoctoproject.org/poky' in /srv/work/alex/my-build/poky
+      Running 'git fetch -q origin || true' in /srv/work/alex/my-build/poky
+      Running 'git remote remove poky-contrib > /dev/null 2>&1; git remote add poky-contrib ssh://git@push.yoctoproject.org/poky-contrib' in /srv/work/alex/my-build/poky
+      Running 'git fetch -q poky-contrib || true' in /srv/work/alex/my-build/poky
+      Running 'git checkout -q 11db0390b02acac1324e0f827beb0e2e3d0d1d63' in /srv/work/alex/my-build/poky
+
+.. note::
+   This will work to update an existing checkout as well.
+
+.. note::
+   The script is self-sufficient and requires only python3
+   and git on the build machine.
+
+.. note::
+   Both the ``create-layers-setup`` and the ``setup-layers`` provided several additional options
+   that customize their behavior - you are welcome to study them via ``--help`` command line parameter.
 
 Customizing Images
 ==================
@@ -1125,6 +1158,7 @@ The remainder of the section provides details for the steps.
 
 .. image:: figures/recipe-workflow.png
    :align: center
+   :width: 50%
 
 Locate or Automatically Create a Base Recipe
 --------------------------------------------
@@ -1697,7 +1731,7 @@ your software is built:
 
       If you need to install one or more custom CMake toolchain files
       that are supplied by the application you are building, install the
-      files to ``${D}${datadir}/cmake/Modules`` during ``do_install``.
+      files to ``${D}${datadir}/cmake/Modules`` during :ref:`ref-tasks-install`.
 
 -  *Other:* If your source files do not have a ``configure.ac`` or
    ``CMakeLists.txt`` file, then your software is built using some
@@ -1792,8 +1826,8 @@ out-of-tree modules. Your recipe will also need the following::
 Compilation
 -----------
 
-During a build, the ``do_compile`` task happens after source is fetched,
-unpacked, and configured. If the recipe passes through ``do_compile``
+During a build, the :ref:`ref-tasks-compile` task happens after source is fetched,
+unpacked, and configured. If the recipe passes through :ref:`ref-tasks-compile`
 successfully, nothing needs to be done.
 
 However, if the compile step fails, you need to diagnose the failure.
@@ -1854,7 +1888,7 @@ Here are some common issues that cause failures.
 Installing
 ----------
 
-During ``do_install``, the task copies the built files along with their
+During :ref:`ref-tasks-install`, the task copies the built files along with their
 hierarchy to locations that would mirror their locations on the target
 device. The installation process copies files from the
 ``${``\ :term:`S`\ ``}``,
@@ -1872,14 +1906,14 @@ the software being built:
 -  *Autotools and CMake:* If the software your recipe is building uses
    Autotools or CMake, the OpenEmbedded build system understands how to
    install the software. Consequently, you do not have to have a
-   ``do_install`` task as part of your recipe. You just need to make
+   :ref:`ref-tasks-install` task as part of your recipe. You just need to make
    sure the install portion of the build completes with no issues.
    However, if you wish to install additional files not already being
    installed by ``make install``, you should do this using a
    ``do_install:append`` function using the install command as described
    in the "Manual" bulleted item later in this list.
 
--  *Other (using* ``make install``\ *)*: You need to define a ``do_install``
+-  *Other (using* ``make install``\ *)*: You need to define a :ref:`ref-tasks-install`
    function in your recipe. The function should call
    ``oe_runmake install`` and will likely need to pass in the
    destination directory as well. How you pass that path is dependent on
@@ -1889,7 +1923,7 @@ the software being built:
    For an example recipe using ``make install``, see the
    ":ref:`dev-manual/common-tasks:makefile-based package`" section.
 
--  *Manual:* You need to define a ``do_install`` function in your
+-  *Manual:* You need to define a :ref:`ref-tasks-install` function in your
    recipe. The function must first use ``install -d`` to create the
    directories under
    ``${``\ :term:`D`\ ``}``. Once the
@@ -1912,10 +1946,10 @@ installed correctly.
       might need to replace hard-coded paths in an initscript with
       values of variables provided by the build system, such as
       replacing ``/usr/bin/`` with ``${bindir}``. If you do perform such
-      modifications during ``do_install``, be sure to modify the
+      modifications during :ref:`ref-tasks-install`, be sure to modify the
       destination file after copying rather than before copying.
       Modifying after copying ensures that the build system can
-      re-execute ``do_install`` if needed.
+      re-execute :ref:`ref-tasks-install` if needed.
 
    -  ``oe_runmake install``, which can be run directly or can be run
       indirectly by the
@@ -1924,7 +1958,7 @@ installed correctly.
       runs ``make install`` in parallel. Sometimes, a Makefile can have
       missing dependencies between targets that can result in race
       conditions. If you experience intermittent failures during
-      ``do_install``, you might be able to work around them by disabling
+      :ref:`ref-tasks-install`, you might be able to work around them by disabling
       parallel Makefile installs by adding the following to the recipe::
 
          PARALLEL_MAKEINST = ""
@@ -1946,7 +1980,7 @@ additional definitions in your recipe.
 If you are adding services and the service initialization script or the
 service file itself is not installed, you must provide for that
 installation in your recipe using a ``do_install:append`` function. If
-your recipe already has a ``do_install`` function, update the function
+your recipe already has a :ref:`ref-tasks-install` function, update the function
 near its end rather than adding an additional ``do_install:append``
 function.
 
@@ -1994,10 +2028,10 @@ Successful packaging is a combination of automated processes performed
 by the OpenEmbedded build system and some specific steps you need to
 take. The following list describes the process:
 
--  *Splitting Files*: The ``do_package`` task splits the files produced
+-  *Splitting Files*: The :ref:`ref-tasks-package` task splits the files produced
    by the recipe into logical components. Even software that produces a
    single binary might still have debug symbols, documentation, and
-   other logical components that should be split out. The ``do_package``
+   other logical components that should be split out. The :ref:`ref-tasks-package`
    task ensures that files are split up and packaged correctly.
 
 -  *Running QA Checks*: The
@@ -2303,9 +2337,9 @@ Single .c File Package (Hello World!)
 Building an application from a single file that is stored locally (e.g.
 under ``files``) requires a recipe that has the file listed in the
 :term:`SRC_URI` variable. Additionally, you need to manually write the
-``do_compile`` and ``do_install`` tasks. The :term:`S` variable defines the
+:ref:`ref-tasks-compile` and :ref:`ref-tasks-install` tasks. The :term:`S` variable defines the
 directory containing the source code, which is set to
-:term:`WORKDIR` in this case - the
+:term:`WORKDIR` in this case --- the
 directory BitBake uses for the build.
 ::
 
@@ -2367,14 +2401,14 @@ Makefile-Based Package
 
 Applications that use GNU ``make`` also require a recipe that has the
 source archive listed in :term:`SRC_URI`. You do not need to add a
-``do_compile`` step since by default BitBake starts the ``make`` command
+:ref:`ref-tasks-compile` step since by default BitBake starts the ``make`` command
 to compile the application. If you need additional ``make`` options, you
 should store them in the
 :term:`EXTRA_OEMAKE` or
 :term:`PACKAGECONFIG_CONFARGS`
 variables. BitBake passes these options into the GNU ``make``
-invocation. Note that a ``do_install`` task is still required.
-Otherwise, BitBake runs an empty ``do_install`` task by default.
+invocation. Note that a :ref:`ref-tasks-install` task is still required.
+Otherwise, BitBake runs an empty :ref:`ref-tasks-install` task by default.
 
 Some applications might require extra parameters to be passed to the
 compiler. For example, the application might need an additional header
@@ -2517,7 +2551,7 @@ doing the following:
    ``${``\ :term:`S`\ ``}``.
 
    If ``${S}`` might contain a Makefile, or if you inherit some class
-   that replaces ``do_configure`` and ``do_compile`` with custom
+   that replaces :ref:`ref-tasks-configure` and :ref:`ref-tasks-compile` with custom
    versions, then you can use the
    ``[``\ :ref:`noexec <bitbake-user-manual/bitbake-user-manual-metadata:variable flags>`\ ``]``
    flag to turn the tasks into no-ops, as follows::
@@ -2533,7 +2567,7 @@ doing the following:
    :ref:`ref-tasks-patch` tasks to the
    :ref:`ref-tasks-install` task.
 
--  Make sure your ``do_install`` task installs the binaries
+-  Make sure your :ref:`ref-tasks-install` task installs the binaries
    appropriately.
 
 -  Ensure that you set up :term:`FILES`
@@ -2562,7 +2596,7 @@ Recipe Syntax
 Understanding recipe file syntax is important for writing recipes. The
 following list overviews the basic items that make up a BitBake recipe
 file. For more complete BitBake syntax descriptions, see the
-":doc:`bitbake-user-manual/bitbake-user-manual-metadata`"
+":doc:`bitbake:bitbake-user-manual/bitbake-user-manual-metadata`"
 chapter of the BitBake User Manual.
 
 -  *Variable Assignments and Manipulations:* Variable assignments allow
@@ -2576,7 +2610,7 @@ chapter of the BitBake User Manual.
 
       S = "${WORKDIR}/postfix-${PV}"
       CFLAGS += "-DNO_ASM"
-      SRC_URI:append = " file://fixup.patch"
+      CFLAGS:append = " --enable-important-feature"
 
 -  *Functions:* Functions provide a series of actions to be performed.
    You usually use functions to override the default implementation of a
@@ -2620,7 +2654,7 @@ chapter of the BitBake User Manual.
 This next list summarizes the most important and most commonly used
 parts of the recipe syntax. For more information on these parts of the
 syntax, you can reference the
-:doc:`bitbake:bitbake-user-manual/bitbake-user-manual-metadata` chapter
+":doc:`bitbake:bitbake-user-manual/bitbake-user-manual-metadata`" chapter
 in the BitBake User Manual.
 
 -  *Line Continuation (\\):* Use the backward slash (``\``) character to
@@ -2707,19 +2741,21 @@ in the BitBake User Manual.
    to existing variables. This operator does not add any additional
    space. Also, the operator is applied after all the ``+=``, and ``=+``
    operators have been applied and after all ``=`` assignments have
-   occurred.
+   occurred. This means that if ``:append`` is used in a recipe, it can
+   only be overridden by another layer using the  special ``:remove``
+   operator, which in turn will prevent further layers from adding it back.
 
    The following example shows the space being explicitly added to the
    start to ensure the appended value is not merged with the existing
    value::
 
-      SRC_URI:append = " file://fix-makefile.patch"
+      CFLAGS:append = " --enable-important-feature"
 
    You can also use
    the ``:append`` operator with overrides, which results in the actions
    only being performed for the specified target or machine::
 
-      SRC_URI:append:sh4 = " file://fix-makefile.patch"
+      CFLAGS:append:sh4 = " --enable-important-sh4-specific-feature"
 
 -  *Prepending (:prepend):* Use the ``:prepend`` operator to prepend
    values to existing variables. This operator does not add any
@@ -2779,7 +2815,7 @@ in the BitBake User Manual.
    functionality. The same considerations apply to various system
    utilities (e.g. ``sed``, ``grep``, ``awk``, and so forth) that you
    might wish to use. If in doubt, you should check with multiple
-   implementations - including those from BusyBox.
+   implementations --- including those from BusyBox.
 
 Adding a New Machine
 ====================
@@ -2845,7 +2881,7 @@ you can use as references.
 If you are creating a new kernel recipe, normal recipe-writing rules
 apply for setting up a :term:`SRC_URI`. Thus, you need to specify any
 necessary patches and set :term:`S` to point at the source code. You need to
-create a ``do_configure`` task that configures the unpacked kernel with
+create a :ref:`ref-tasks-configure` task that configures the unpacked kernel with
 a ``defconfig`` file. You can do this by using a ``make defconfig``
 command or, more commonly, by copying in a suitable ``defconfig`` file
 and then running ``make oldconfig``. By making use of ``inherit kernel``
@@ -3347,9 +3383,9 @@ The actual directory depends on several things:
 
 -  :term:`PN`: The recipe name.
 
--  :term:`EXTENDPE`: The epoch - (if
+-  :term:`EXTENDPE`: The epoch --- if
    :term:`PE` is not specified, which is
-   usually the case for most recipes, then :term:`EXTENDPE` is blank).
+   usually the case for most recipes, then :term:`EXTENDPE` is blank.
 
 -  :term:`PV`: The recipe version.
 
@@ -3410,7 +3446,7 @@ Follow these general steps:
    you added to the patch.
 
 6. *Test Your Changes:* Once you have modified the source code, the
-   easiest way to test your changes is by calling the ``do_compile``
+   easiest way to test your changes is by calling the :ref:`ref-tasks-compile`
    task as shown in the following example::
 
       $ bitbake -c compile -f package
@@ -3422,7 +3458,7 @@ Follow these general steps:
    .. note::
 
       All the modifications you make to the temporary source code disappear
-      once you run the ``do_clean`` or ``do_cleanall`` tasks using BitBake
+      once you run the :ref:`ref-tasks-clean` or :ref:`ref-tasks-cleanall` tasks using BitBake
       (i.e. ``bitbake -c clean package`` and ``bitbake -c cleanall package``).
       Modifications will also disappear if you use the ``rm_work`` feature as
       described in the
@@ -3559,6 +3595,9 @@ functions::
    pydevshell> bb.build.exec_func("do_unpack", d)
    pydevshell>
 
+See the ":ref:`bitbake:bitbake-user-manual/bitbake-user-manual-metadata:functions you can call from within python`"
+section in the BitBake User Manual for details about available functions.
+
 The commands execute just as if the OpenEmbedded build
 system were executing them. Consequently, working this way can be
 helpful when debugging a build or preparing software to be used with the
@@ -3618,7 +3657,7 @@ Yocto Project Overview and Concepts Manual.
 The following figure and list overviews the build process:
 
 .. image:: figures/bitbake-build-flow.png
-   :align: center
+   :width: 100%
 
 1. *Set up Your Host Development System to Support Development Using the
    Yocto Project*: See the ":doc:`start`" section for options on how to get a
@@ -3703,7 +3742,7 @@ Setting Up and Running a Multiple Configuration Build
 
 To accomplish a multiple configuration build, you must define each
 target's configuration separately using a parallel configuration file in
-the :term:`Build Directory`, and you
+the :term:`Build Directory` or configuration directory within a layer, and you
 must follow a required file hierarchy. Additionally, you must enable the
 multiple configuration builds in your ``local.conf`` file.
 
@@ -3711,16 +3750,19 @@ Follow these steps to set up and execute multiple configuration builds:
 
 -  *Create Separate Configuration Files*: You need to create a single
    configuration file for each build target (each multiconfig).
-   Minimally, each configuration file must define the machine and the
-   temporary directory BitBake uses for the build. Suggested practice
-   dictates that you do not overlap the temporary directories used
-   during the builds. However, it is possible that you can share the
-   temporary directory
-   (:term:`TMPDIR`). For example,
-   consider a scenario with two different multiconfigs for the same
+   The configuration definitions are implementation dependent but often
+   each configuration file will define the machine and the
+   temporary directory BitBake uses for the build. Whether the same
+   temporary directory (:term:`TMPDIR`) can be shared will depend on what is
+   similar and what is different between the configurations. Multiple MACHINE
+   targets can share the same (:term:`TMPDIR`) as long as the rest of the
+   configuration is the same, multiple DISTRO settings would need separate
+   (:term:`TMPDIR`) directories.
+
+   For example, consider a scenario with two different multiconfigs for the same
    :term:`MACHINE`: "qemux86" built
    for two distributions such as "poky" and "poky-lsb". In this case,
-   you might want to use the same :term:`TMPDIR`.
+   you would need to use the different :term:`TMPDIR`.
 
    Here is an example showing the minimal statements needed in a
    configuration file for a "qemux86" target whose temporary build
@@ -3731,17 +3773,16 @@ Follow these steps to set up and execute multiple configuration builds:
 
    The location for these multiconfig configuration files is specific.
    They must reside in the current build directory in a sub-directory of
-   ``conf`` named ``multiconfig``. Following is an example that defines
+   ``conf`` named ``multiconfig`` or within a layer's ``conf`` directory
+   under a directory named ``multiconfig``. Following is an example that defines
    two configuration files for the "x86" and "arm" multiconfigs:
 
    .. image:: figures/multiconfig_files.png
       :align: center
+      :width: 50%
 
-   The reason for this required file hierarchy is because the :term:`BBPATH`
-   variable is not constructed until the layers are parsed.
-   Consequently, using the configuration file as a pre-configuration
-   file is not possible unless it is located in the current working
-   directory.
+   The usual :term:`BBPATH` search path is used to locate multiconfig files in
+   a similar way to other conf files.
 
 -  *Add the BitBake Multi-configuration Variable to the Local
    Configuration File*: Use the
@@ -3812,8 +3853,8 @@ to be added to the recipe that builds the ``core-image-sato`` image::
    do_image[mcdepends] = "mc:x86:arm:core-image-minimal:do_rootfs"
 
 In this example, the `from_multiconfig` is "x86". The `to_multiconfig` is "arm". The
-task on which the ``do_image`` task in the recipe depends is the
-``do_rootfs`` task from the ``core-image-minimal`` recipe associated
+task on which the :ref:`ref-tasks-image` task in the recipe depends is the
+:ref:`ref-tasks-rootfs` task from the ``core-image-minimal`` recipe associated
 with the "arm" multiconfig.
 
 Once you set up this dependency, you can build the "x86" multiconfig
@@ -3823,7 +3864,7 @@ using a BitBake command as follows::
 
 This command executes all the tasks needed to create the
 ``core-image-sato`` image for the "x86" multiconfig. Because of the
-dependency, BitBake also executes through the ``do_rootfs`` task for the
+dependency, BitBake also executes through the :ref:`ref-tasks-rootfs` task for the
 "arm" multiconfig build.
 
 Having a recipe depend on the root filesystem of another build might not
@@ -3841,99 +3882,59 @@ and have separate configuration files, BitBake places the artifacts for
 each build in the respective temporary build directories (i.e.
 :term:`TMPDIR`).
 
-Building an Initial RAM Filesystem (initramfs) Image
+Building an Initial RAM Filesystem (Initramfs) Image
 ----------------------------------------------------
 
-An initial RAM filesystem (initramfs) image provides a temporary root
-filesystem used for early system initialization (e.g. loading of modules
-needed to locate and mount the "real" root filesystem).
+An initial RAM filesystem (:term:`Initramfs`) image provides a temporary root
+filesystem used for early system initialization, typically providing tools and
+loading modules needed to locate and mount the final root filesystem.
 
-.. note::
+Follow these steps to create an :term:`Initramfs` image:
 
-   The initramfs image is the successor of initial RAM disk (initrd). It
-   is a "copy in and out" (cpio) archive of the initial filesystem that
-   gets loaded into memory during the Linux startup process. Because
-   Linux uses the contents of the archive during initialization, the
-   initramfs image needs to contain all of the device drivers and tools
-   needed to mount the final root filesystem.
-
-Follow these steps to create an initramfs image:
-
-1. *Create the initramfs Image Recipe:* You can reference the
+1. *Create the Initramfs Image Recipe:* You can reference the
    ``core-image-minimal-initramfs.bb`` recipe found in the
    ``meta/recipes-core`` directory of the :term:`Source Directory`
-   as an example
-   from which to work.
+   as an example from which to work.
 
-2. *Decide if You Need to Bundle the initramfs Image Into the Kernel
-   Image:* If you want the initramfs image that is built to be bundled
-   in with the kernel image, set the
-   :term:`INITRAMFS_IMAGE_BUNDLE`
-   variable to "1" in your ``local.conf`` configuration file and set the
-   :term:`INITRAMFS_IMAGE`
-   variable in the recipe that builds the kernel image.
+2. *Decide if You Need to Bundle the Initramfs Image Into the Kernel
+   Image:* If you want the :term:`Initramfs` image that is built to be bundled
+   in with the kernel image, set the :term:`INITRAMFS_IMAGE_BUNDLE`
+   variable to ``"1"`` in your ``local.conf`` configuration file and set the
+   :term:`INITRAMFS_IMAGE` variable in the recipe that builds the kernel image.
 
-   .. note::
-
-      It is recommended that you bundle the initramfs image with the
-      kernel image to avoid circular dependencies between the kernel
-      recipe and the initramfs recipe should the initramfs image include
-      kernel modules.
-
-   Setting the :term:`INITRAMFS_IMAGE_BUNDLE` flag causes the initramfs
+   Setting the :term:`INITRAMFS_IMAGE_BUNDLE` flag causes the :term:`Initramfs`
    image to be unpacked into the ``${B}/usr/`` directory. The unpacked
-   initramfs image is then passed to the kernel's ``Makefile`` using the
-   :term:`CONFIG_INITRAMFS_SOURCE`
-   variable, allowing the initramfs image to be built into the kernel
-   normally.
+   :term:`Initramfs` image is then passed to the kernel's ``Makefile`` using the
+   :term:`CONFIG_INITRAMFS_SOURCE` variable, allowing the :term:`Initramfs`
+   image to be built into the kernel normally.
 
-   .. note::
+3. *Optionally Add Items to the Initramfs Image Through the Initramfs
+   Image Recipe:* If you add items to the :term:`Initramfs` image by way of its
+   recipe, you should use :term:`PACKAGE_INSTALL` rather than
+   :term:`IMAGE_INSTALL`. :term:`PACKAGE_INSTALL` gives more direct control of
+   what is added to the image as compared to the defaults you might not
+   necessarily want that are set by the :ref:`image <ref-classes-image>`
+   or :ref:`core-image <ref-classes-core-image>` classes.
 
-      Bundling the initramfs with the kernel conflates the code in the initramfs
-      with the GPLv2 licensed Linux kernel binary. Thus only GPLv2 compatible
-      software may be part of a bundled initramfs.
-
-   .. note::
-
-      If you choose to not bundle the initramfs image with the kernel
-      image, you are essentially using an
-      `Initial RAM Disk (initrd) <https://en.wikipedia.org/wiki/Initrd>`__.
-      Creating an initrd is handled primarily through the :term:`INITRD_IMAGE`,
-      ``INITRD_LIVE``, and ``INITRD_IMAGE_LIVE`` variables. For more
-      information, see the :ref:`ref-classes-image-live` file.
-
-3. *Optionally Add Items to the initramfs Image Through the initramfs
-   Image Recipe:* If you add items to the initramfs image by way of its
-   recipe, you should use
-   :term:`PACKAGE_INSTALL`
-   rather than
-   :term:`IMAGE_INSTALL`.
-   :term:`PACKAGE_INSTALL` gives more direct control of what is added to the
-   image as compared to the defaults you might not necessarily want that
-   are set by the :ref:`image <ref-classes-image>`
-   or :ref:`core-image <ref-classes-core-image>`
-   classes.
-
-4. *Build the Kernel Image and the initramfs Image:* Build your kernel
-   image using BitBake. Because the initramfs image recipe is a
-   dependency of the kernel image, the initramfs image is built as well
+4. *Build the Kernel Image and the Initramfs Image:* Build your kernel
+   image using BitBake. Because the :term:`Initramfs` image recipe is a
+   dependency of the kernel image, the :term:`Initramfs` image is built as well
    and bundled with the kernel image if you used the
-   :term:`INITRAMFS_IMAGE_BUNDLE`
-   variable described earlier.
+   :term:`INITRAMFS_IMAGE_BUNDLE` variable described earlier.
 
 Bundling an Initramfs Image From a Separate Multiconfig
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-There may be a case where we want to build an initramfs image which does not
+There may be a case where we want to build an :term:`Initramfs` image which does not
 inherit the same distro policy as our main image, for example, we may want
-our main image to use ``TCLIBC="glibc"``, but to use ``TCLIBC="musl"`` in our initramfs
+our main image to use ``TCLIBC="glibc"``, but to use ``TCLIBC="musl"`` in our :term:`Initramfs`
 image to keep a smaller footprint. However, by performing the steps mentioned
-above the initramfs image will inherit ``TCLIBC="glibc"`` without allowing us
+above the :term:`Initramfs` image will inherit ``TCLIBC="glibc"`` without allowing us
 to override it.
 
 To achieve this, you need to perform some additional steps:
 
-1. *Create a multiconfig for your initramfs image:* You can perform the steps
+1. *Create a multiconfig for your Initramfs image:* You can perform the steps
    on ":ref:`dev-manual/common-tasks:building images for multiple targets using multiple configurations`" to create a separate multiconfig.
    For the sake of simplicity let's assume such multiconfig is called: ``initramfscfg.conf`` and
    contains the variables::
@@ -3941,7 +3942,7 @@ To achieve this, you need to perform some additional steps:
       TMPDIR="${TOPDIR}/tmp-initramfscfg"
       TCLIBC="musl"
 
-2. *Set additional initramfs variables on your main configuration:*
+2. *Set additional Initramfs variables on your main configuration:*
    Additionally, on your main configuration (``local.conf``) you need to set the
    variables::
 
@@ -3954,9 +3955,9 @@ To achieve this, you need to perform some additional steps:
    buildsystem know where the :term:`INITRAMFS_IMAGE` will be located.
 
    Building a system with such configuration will build the kernel using the
-   main configuration but the ``do_bundle_initramfs`` task will grab the
+   main configuration but the :ref:`ref-tasks-bundle_initramfs` task will grab the
    selected :term:`INITRAMFS_IMAGE` from :term:`INITRAMFS_DEPLOY_DIR_IMAGE`
-   instead, resulting in a musl based initramfs image bundled in the kernel
+   instead, resulting in a musl based :term:`Initramfs` image bundled in the kernel
    but a glibc based main image.
 
    The same is applicable to avoid inheriting :term:`DISTRO_FEATURES` on :term:`INITRAMFS_IMAGE`
@@ -4130,7 +4131,7 @@ file::
 Finally, you should consider exactly the type of root filesystem you
 need to meet your needs while also reducing its size. For example,
 consider ``cramfs``, ``squashfs``, ``ubifs``, ``ext2``, or an
-``initramfs`` using ``initramfs``. Be aware that ``ext3`` requires a 1
+:term:`Initramfs` using ``initramfs``. Be aware that ``ext3`` requires a 1
 Mbyte journal. If you are okay with running read-only, you do not need
 this journal.
 
@@ -4699,7 +4700,7 @@ the built library.
 The :term:`PACKAGES` and
 :term:`FILES:* <FILES>` variables in the
 ``meta/conf/bitbake.conf`` configuration file define how files installed
-by the ``do_install`` task are packaged. By default, the :term:`PACKAGES`
+by the :ref:`ref-tasks-install` task are packaged. By default, the :term:`PACKAGES`
 variable includes ``${PN}-staticdev``, which represents all static
 library files.
 
@@ -4826,7 +4827,7 @@ configuration would be as follows::
    require conf/multilib.conf
    MULTILIBS = "multilib:lib32"
    DEFAULTTUNE:virtclass-multilib-lib32 = "x86"
-   IMAGE_INSTALL:append = "lib32-glib-2.0"
+   IMAGE_INSTALL:append = " lib32-glib-2.0"
 
 This example enables an additional library named
 ``lib32`` alongside the normal target packages. When combining these
@@ -5392,7 +5393,7 @@ create the properly partitioned image.
 
 The ``wic`` command generates partitioned images from existing
 OpenEmbedded build artifacts. Image generation is driven by partitioning
-commands contained in an Openembedded kickstart file (``.wks``)
+commands contained in an OpenEmbedded kickstart file (``.wks``)
 specified either directly on the command line or as one of a selection
 of canned kickstart files as shown with the ``wic list images`` command
 in the
@@ -5464,7 +5465,7 @@ system needs to meet the following requirements:
 
 -  You need to have the build artifacts already available, which
    typically means that you must have already created an image using the
-   Openembedded build system (e.g. ``core-image-minimal``). While it
+   OpenEmbedded build system (e.g. ``core-image-minimal``). While it
    might seem redundant to generate an image in order to create an image
    using Wic, the current version of Wic requires the artifacts in the
    form generated by the OpenEmbedded build system.
@@ -5479,7 +5480,9 @@ system needs to meet the following requirements:
    variable.
 
 -  Include the name of the :ref:`wic kickstart file <openembedded-kickstart-wks-reference>`
-   as part of the :term:`WKS_FILE` variable
+   as part of the :term:`WKS_FILE` variable. If multiple candidate files can
+   be provided by different layers, specify all the possible names through the
+   :term:`WKS_FILES` variable instead.
 
 Getting Help
 ------------
@@ -5546,7 +5549,7 @@ Operational Modes
 -----------------
 
 You can use Wic in two different modes, depending on how much control
-you need for specifying the Openembedded build artifacts that are used
+you need for specifying the OpenEmbedded build artifacts that are used
 for creating the image: Raw and Cooked:
 
 -  *Raw Mode:* You explicitly specify build artifacts through Wic
@@ -5880,7 +5883,7 @@ Directory onto a USB stick, or whatever media for which you built your
 image, and boot from the media. You can write the image by using
 ``bmaptool`` or ``dd``::
 
-   $ oe-run-native bmaptool copy mkefidisk-201804191017-sda.direct /dev/sdX
+   $ oe-run-native bmap-tools-native bmaptool copy mkefidisk-201804191017-sda.direct /dev/sdX
 
 or ::
 
@@ -6426,71 +6429,51 @@ Creating a Custom Template Configuration Directory
 ==================================================
 
 If you are producing your own customized version of the build system for
-use by other users, you might want to customize the message shown by the
-setup script or you might want to change the template configuration
-files (i.e. ``local.conf`` and ``bblayers.conf``) that are created in a
-new build directory.
+use by other users, you might want to provide a custom build configuration
+that includes all the necessary settings and layers (i.e. ``local.conf`` and
+``bblayers.conf`` that are created in a new build directory) and a custom
+message that is shown when setting up the build. This can be done by
+creating one or more template configuration directories in your
+custom distribution layer.
+
+This can be done by using ``bitbake-layers save-build-conf``::
+
+   $ bitbake-layers save-build-conf ../../meta-alex/ test-1
+   NOTE: Starting bitbake server...
+   NOTE: Configuration template placed into /srv/work/alex/meta-alex/conf/templates/test-1
+   Please review the files in there, and particularly provide a configuration description in /srv/work/alex/meta-alex/conf/templates/test-1/conf-notes.txt
+   You can try out the configuration with
+   TEMPLATECONF=/srv/work/alex/meta-alex/conf/templates/test-1 . /srv/work/alex/poky/oe-init-build-env build-try-test-1
+
+The above command takes the config files from the currently active build directory under ``conf``,
+replaces site-specific paths in ``bblayers.conf`` with ``##OECORE##``-relative paths, and copies
+the config files into a specified layer under a specified template name.
+
+To use those saved templates as a starting point for a build, users should point
+to one of them with :term:`TEMPLATECONF` environment variable::
+
+   TEMPLATECONF=/srv/work/alex/meta-alex/conf/templates/test-1 . /srv/work/alex/poky/oe-init-build-env build-try-test-1
 
 The OpenEmbedded build system uses the environment variable
-``TEMPLATECONF`` to locate the directory from which it gathers
+:term:`TEMPLATECONF` to locate the directory from which it gathers
 configuration information that ultimately ends up in the
 :term:`Build Directory` ``conf`` directory.
-By default, ``TEMPLATECONF`` is set as follows in the ``poky``
-repository::
 
-   TEMPLATECONF=${TEMPLATECONF:-meta-poky/conf}
+If :term:`TEMPLATECONF` is not set, the default value is obtained
+from ``.templateconf`` file that is read from the same directory as
+``oe-init-build-env`` script. For the Poky reference distribution this
+would be::
 
-This is the
-directory used by the build system to find templates from which to build
-some key configuration files. If you look at this directory, you will
+   TEMPLATECONF=${TEMPLATECONF:-meta-poky/conf/templates/default}
+
+If you look at a configuration template directory, you will
 see the ``bblayers.conf.sample``, ``local.conf.sample``, and
 ``conf-notes.txt`` files. The build system uses these files to form the
-respective ``bblayers.conf`` file, ``local.conf`` file, and display the
-list of BitBake targets when running the setup script.
-
-To override these default configuration files with configurations you
-want used within every new Build Directory, simply set the
-``TEMPLATECONF`` variable to your directory. The ``TEMPLATECONF``
-variable is set in the ``.templateconf`` file, which is in the top-level
-:term:`Source Directory` folder
-(e.g. ``poky``). Edit the ``.templateconf`` so that it can locate your
-directory.
-
-Best practices dictate that you should keep your template configuration
-directory in your custom distribution layer. For example, suppose you
-have a layer named ``meta-mylayer`` located in your home directory and
-you want your template configuration directory named ``myconf``.
-Changing the ``.templateconf`` as follows causes the OpenEmbedded build
-system to look in your directory and base its configuration files on the
-``*.sample`` configuration files it finds. The final configuration files
-(i.e. ``local.conf`` and ``bblayers.conf`` ultimately still end up in
-your Build Directory, but they are based on your ``*.sample`` files.
-::
-
-   TEMPLATECONF=${TEMPLATECONF:-meta-mylayer/myconf}
-
-Aside from the ``*.sample`` configuration files, the ``conf-notes.txt``
-also resides in the default ``meta-poky/conf`` directory. The script
-that sets up the build environment (i.e.
-:ref:`structure-core-script`) uses this file to
-display BitBake targets as part of the script output. Customizing this
-``conf-notes.txt`` file is a good way to make sure your list of custom
-targets appears as part of the script's output.
-
-Here is the default list of targets displayed as a result of running
-either of the setup scripts::
-
-   You can now run 'bitbake <target>'
-
-   Common targets are:
-       core-image-minimal
-       core-image-sato
-       meta-toolchain
-       meta-ide-support
-
-Changing the listed common targets is as easy as editing your version of
-``conf-notes.txt`` in your custom template configuration directory and
-making sure you have ``TEMPLATECONF`` set to your directory.
+respective ``bblayers.conf`` file, ``local.conf`` file, and show
+users a note about the build they're setting up
+when running the ``oe-init-build-env`` setup script. These can be
+edited further if needed to improve or change the build configurations
+available to the users.
 
 Conserving Disk Space
 =====================
@@ -6522,7 +6505,7 @@ newest sstate cache file for each package::
 
 This command will ask you to confirm the deletions it identifies.
 
-Note::
+.. note::
 
    The duplicated sstate cache files of one package must have the same
    architecture, which means that sstate cache files with multiple
@@ -6597,7 +6580,7 @@ the following:
    installed into an image.
 
 -  Binary Package Version: The binary package version is composed of two
-   components - a version and a revision.
+   components --- a version and a revision.
 
    .. note::
 
@@ -6879,7 +6862,7 @@ The previous example specifies a number of things in the call to
 ``do_split_packages``.
 
 -  A directory within the files installed by your recipe through
-   ``do_install`` in which to search.
+   :ref:`ref-tasks-install` in which to search.
 
 -  A regular expression used to match module files in that directory. In
    the example, note the parentheses () that mark the part of the
@@ -6934,7 +6917,7 @@ optional arguments::
       Postinstall script to use for all packages
       (as a string)
    recursive
-      True to perform a recursive search - default
+      True to perform a recursive search --- default
       False
    hook
       A hook function to be called for every match.
@@ -6955,7 +6938,7 @@ optional arguments::
       Extra runtime dependencies (RDEPENDS) to be
       set for all packages. The default value of None
       causes a dependency on the main package
-      (${PN}) - if you do not want this, pass empty
+      (${PN}) --- if you do not want this, pass empty
       string '' for this parameter.
    aux_files_pattern
       Extra item(s) to be added to FILES for each
@@ -6981,7 +6964,7 @@ optional arguments::
       or a list of strings for multiple items. Must
       include %s.
    allow_links
-      True to allow symlinks to be matched - default
+      True to allow symlinks to be matched --- default
       False
    summary
       Summary to set for each package. Must include %s;
@@ -7426,7 +7409,7 @@ A Package Test (ptest) runs tests against packages built by the
 OpenEmbedded build system on the target machine. A ptest contains at
 least two items: the actual test, and a shell script (``run-ptest``)
 that starts the test. The shell script that starts the test must not
-contain the actual test - the script only starts the test. On the other
+contain the actual test --- the script only starts the test. On the other
 hand, the test can be anything from a simple shell script that runs a
 binary and checks the output to an elaborate system of test binaries and
 data files.
@@ -7609,6 +7592,11 @@ The
 fetch URI to download each dependency and capture license details where
 possible. The result is a generated recipe.
 
+After running for quite a long time, in particular building the
+``nodejs-native`` package, the command should end as follows::
+
+   INFO: Recipe /home/.../build/workspace/recipes/cute-files/cute-files_1.0.2.bb has been automatically created; further editing may be required to make it fully functional
+
 The recipe file is fairly simple and contains every license that
 ``recipetool`` finds and includes the licenses in the recipe's
 :term:`LIC_FILES_CHKSUM`
@@ -7619,7 +7607,7 @@ modules and manually add the information to the recipe.
 
 ``recipetool`` creates a "shrinkwrap" file for your recipe. Shrinkwrap
 files capture the version of all dependent modules. Many packages do not
-provide shrinkwrap files. ``recipetool`` create a shrinkwrap file as it
+provide shrinkwrap files but ``recipetool`` will create a shrinkwrap file as it
 runs.
 
 .. note::
@@ -7631,18 +7619,38 @@ runs.
 The ``devtool edit-recipe`` command lets you take a look at the recipe::
 
    $ devtool edit-recipe cute-files
+   # Recipe created by recipetool
+   # This is the basis of a recipe and may need further editing in order to be fully functional.
+   # (Feel free to remove these comments when editing.)
+
    SUMMARY = "Turn any folder on your computer into a cute file browser, available on the local network."
-   LICENSE = "MIT & ISC & Unknown"
+   # WARNING: the following LICENSE and LIC_FILES_CHKSUM values are best guesses - it is
+   # your responsibility to verify that the values are complete and correct.
+   #
+   # NOTE: multiple licenses have been detected; they have been separated with &
+   # in the LICENSE value for now since it is a reasonable assumption that all
+   # of the licenses apply. If instead there is a choice between the multiple
+   # licenses then you should change the value to separate the licenses with |
+   # instead of &. If there is any doubt, check the accompanying documentation
+   # to determine which situation is applicable.
+
+   SUMMARY = "Turn any folder on your computer into a cute file browser, available on the local network."
+   LICENSE = "BSD-3-Clause & ISC & MIT"
    LIC_FILES_CHKSUM = "file://LICENSE;md5=71d98c0a1db42956787b1909c74a86ca \
-       file://node_modules/toidentifier/LICENSE;md5=1a261071a044d02eb6f2bb47f51a3502 \
-       file://node_modules/debug/LICENSE;md5=ddd815a475e7338b0be7a14d8ee35a99 \
-       ...
+                       file://node_modules/accepts/LICENSE;md5=bf1f9ad1e2e1d507aef4883fff7103de \
+                       file://node_modules/array-flatten/LICENSE;md5=44088ba57cb871a58add36ce51b8de08 \
+   ...
+                       file://node_modules/cookie-signature/Readme.md;md5=57ae8b42de3dd0c1f22d5f4cf191e15a"
+
    SRC_URI = " \
        npm://registry.npmjs.org/;package=cute-files;version=${PV} \
        npmsw://${THISDIR}/${BPN}/npm-shrinkwrap.json \
        "
+
    S = "${WORKDIR}/npm"
+
    inherit npm
+
    LICENSE:${PN} = "MIT"
    LICENSE:${PN}-accepts = "MIT"
    LICENSE:${PN}-array-flatten = "MIT"
@@ -7675,23 +7683,16 @@ command to deploy your package::
    $ devtool deploy-target -s cute-files root@192.168.7.2
 
 Once the package is installed on the target, you can
-test the application:
-
-.. note::
-
-   Because of a known issue, you cannot simply run ``cute-files`` as you would
-   if you had run ``npm install``.
-
-::
+test the application to show the contents of any directory::
 
   $ cd /usr/lib/node_modules/cute-files
-  $ node cute-files.js
+  $ cute-files
 
 On a browser,
 go to ``http://192.168.7.2:3000`` and you see the following:
 
 .. image:: figures/cute-files-npm-example.png
-   :align: center
+   :width: 100%
 
 You can find the recipe in ``workspace/recipes/cute-files``. You can use
 the recipe in any layer you choose.
@@ -7713,12 +7714,11 @@ command::
 
    $ devtool add https://github.com/martinaglv/cute-files.git
 
-The
-recipe this command generates is very similar to the recipe created in
+The recipe this command generates is very similar to the recipe created in
 the previous section. However, the :term:`SRC_URI` looks like the following::
 
    SRC_URI = " \
-       git://github.com/martinaglv/cute-files.git;protocol=https \
+       git://github.com/martinaglv/cute-files.git;protocol=https;branch=master \
        npmsw://${THISDIR}/${BPN}/npm-shrinkwrap.json \
        "
 
@@ -8215,6 +8215,7 @@ variable. Here is an example abbreviated listing:
 
 .. image:: figures/buildhistory.png
    :align: center
+   :width: 50%
 
 At the top level, there is a ``metadata-revs`` file that lists the
 revisions of the repositories for the enabled layers when the build was
@@ -8440,7 +8441,7 @@ The following list shows the files produced for SDKs:
    information.
 
 -  ``sstate-task-sizes.txt:`` A text file containing name-value pairs
-   with information about task group sizes (e.g. ``do_populate_sysroot``
+   with information about task group sizes (e.g. :ref:`ref-tasks-populate_sysroot`
    tasks have a total size). The ``sstate-task-sizes.txt`` file exists
    only when an extensible SDK is created.
 
@@ -8555,7 +8556,7 @@ instruction in the ``README`` file
 Here is a sample screenshot of the interface:
 
 .. image:: figures/buildhistory-web.png
-   :align: center
+   :width: 100%
 
 Performing Automated Runtime Testing
 ====================================
@@ -8761,7 +8762,7 @@ perform a one-time setup of your controller image by doing the following:
    -  Installs normal linux utilities not BusyBox ones (e.g. ``bash``,
       ``coreutils``, ``tar``, ``gzip``, and ``kmod``).
 
-   -  Uses a custom Initial RAM Disk (initramfs) image with a custom
+   -  Uses a custom :term:`Initramfs` image with a custom
       installer. A normal image that you can install usually creates a
       single root filesystem partition. This image uses another installer that
       creates a specific partition layout. Not all Board Support
@@ -9040,7 +9041,7 @@ Class methods are as follows:
 
 -  *hasPackage(pkg):* Returns "True" if ``pkg`` is in the installed
    package list of the image, which is based on the manifest file that
-   is generated during the ``do_rootfs`` task.
+   is generated during the :ref:`ref-tasks-rootfs` task.
 
 -  *hasFeature(feature):* Returns "True" if the feature is in
    :term:`IMAGE_FEATURES` or
@@ -9126,13 +9127,13 @@ The JSON file must include an object with the test name as keys of an
 object or an array. This object (or array of objects) uses the following
 data:
 
--  "pkg" - A mandatory string that is the name of the package to be
+-  "pkg" --- a mandatory string that is the name of the package to be
    installed.
 
--  "rm" - An optional boolean, which defaults to "false", that specifies
+-  "rm" --- an optional boolean, which defaults to "false", that specifies
    to remove the package after the test.
 
--  "extract" - An optional boolean, which defaults to "false", that
+-  "extract" --- an optional boolean, which defaults to "false", that
    specifies if the package must be extracted from the package format.
    When set to "true", the package is not automatically installed into
    the DUT.
@@ -9214,7 +9215,7 @@ section:
    to run specific tasks in the build chain. It can be useful to run
    tasks "out-of-order" when trying isolate build issues.
 
--  ":ref:`dev-manual/common-tasks:general bitbake problems`" describes how
+-  ":ref:`dev-manual/common-tasks:general BitBake problems`" describes how
    to use BitBake's ``-D`` debug output option to reveal more about what
    BitBake is doing during the build.
 
@@ -9409,7 +9410,7 @@ format and can be converted to images (e.g. using the ``dot`` tool from
 
    -  DOT files use a plain text format. The graphs generated using the
       ``bitbake -g`` command are often so large as to be difficult to
-      read without special pruning (e.g. with Bitbake's ``-I`` option)
+      read without special pruning (e.g. with BitBake's ``-I`` option)
       and processing. Despite the form and size of the graphs, the
       corresponding ``.dot`` files can still be possible to read and
       provide useful information.
@@ -9592,11 +9593,11 @@ Running Specific Tasks
 ----------------------
 
 Any given recipe consists of a set of tasks. The standard BitBake
-behavior in most cases is: ``do_fetch``, ``do_unpack``, ``do_patch``,
-``do_configure``, ``do_compile``, ``do_install``, ``do_package``,
-``do_package_write_*``, and ``do_build``. The default task is
-``do_build`` and any tasks on which it depends build first. Some tasks,
-such as ``do_devshell``, are not part of the default build chain. If you
+behavior in most cases is: :ref:`ref-tasks-fetch`, :ref:`ref-tasks-unpack`, :ref:`ref-tasks-patch`,
+:ref:`ref-tasks-configure`, :ref:`ref-tasks-compile`, :ref:`ref-tasks-install`, :ref:`ref-tasks-package`,
+:ref:`do_package_write_* <ref-tasks-package_write_deb>`, and :ref:`ref-tasks-build`. The default task is
+:ref:`ref-tasks-build` and any tasks on which it depends build first. Some tasks,
+such as :ref:`ref-tasks-devshell`, are not part of the default build chain. If you
 wish to run a task that is not part of the default build chain, you can
 use the ``-c`` option in BitBake. Here is an example::
 
@@ -9636,7 +9637,7 @@ The following example shows one way you can use the ``-f`` option::
 
 This sequence first builds and then recompiles ``matchbox-desktop``. The
 last command reruns all tasks (basically the packaging tasks) after the
-compile. BitBake recognizes that the ``do_compile`` task was rerun and
+compile. BitBake recognizes that the :ref:`ref-tasks-compile` task was rerun and
 therefore understands that the other tasks also need to be run again.
 
 Another, shorter way to rerun a task and all
@@ -9683,7 +9684,7 @@ task dependency mechanisms.
 
 
 You can view a list of tasks in a given package by running the
-``do_listtasks`` task as follows::
+:ref:`ref-tasks-listtasks` task as follows::
 
    $ bitbake matchbox-desktop -c listtasks
 
@@ -9797,7 +9798,7 @@ Logging With Bash
 ~~~~~~~~~~~~~~~~~
 
 When creating recipes using Bash and inserting code that handles build
-logs, you have the same goals - informative with minimal console output.
+logs, you have the same goals --- informative with minimal console output.
 The syntax you use for recipes written in Bash is similar to that of
 recipes written in Python described in the previous section.
 
@@ -10070,7 +10071,7 @@ to use GDB directly on the remote target to debug applications. These
 constraints arise because GDB needs to load the debugging information
 and the binaries of the process being debugged. Additionally, GDB needs
 to perform many computations to locate information such as function
-names, variable names and values, stack traces and so forth - even
+names, variable names and values, stack traces and so forth --- even
 before starting the debugging process. These extra computations place
 more load on the target system and can alter the characteristics of the
 program being debugged.
@@ -10177,10 +10178,9 @@ debugger.
 
 2. *Configure the system to include gdbserver in the target filesystem:*
 
-   Make the following addition in either your ``local.conf`` file or in
-   an image recipe::
+   Make the following addition in your ``local.conf`` file::
 
-      IMAGE_INSTALL:append = " gdbserver"
+      EXTRA_IMAGE_FEATURES:append = " tools-debug"
 
    The change makes
    sure the ``gdbserver`` package is included.
@@ -10227,14 +10227,14 @@ debugger.
 
       $ mkdir debugfs
       $ cd debugfs
-      $ tar xvfj build-dir/tmp-glibc/deploy/images/machine/image.rootfs.tar.bz2
-      $ tar xvfj build-dir/tmp-glibc/deploy/images/machine/image-dbg.rootfs.tar.bz2
+      $ tar xvfj build-dir/tmp/deploy/images/machine/image.rootfs.tar.bz2
+      $ tar xvfj build-dir/tmp/deploy/images/machine/image-dbg.rootfs.tar.bz2
 
 5. *Set up GDB:*
 
    Install the SDK (if you built one) and then source the correct
    environment file. Sourcing the environment file puts the SDK in your
-   ``PATH`` environment variable.
+   ``PATH`` environment variable and sets ``$GDB`` to the SDK's debugger.
 
    If you are using the build system, Gdb is located in
    `build-dir`\ ``/tmp/sysroots/``\ `host`\ ``/usr/bin/``\ `architecture`\ ``/``\ `architecture`\ ``-gdb``
@@ -10313,24 +10313,20 @@ debug on the target hardware.
 
 To support this kind of debugging, you need do the following:
 
--  Ensure that GDB is on the target. You can do this by adding "gdb" to
-   :term:`IMAGE_INSTALL`::
+-  Ensure that GDB is on the target. You can do this by making
+   the following addition to your ``local.conf`` file::
 
-      IMAGE_INSTALL:append = " gdb"
+      EXTRA_IMAGE_FEATURES:append = " tools-debug"
 
-   Alternatively, you can add "tools-debug" to :term:`IMAGE_FEATURES`::
+-  Ensure that debug symbols are present. You can do so by adding the
+   corresponding ``-dbg`` package to :term:`IMAGE_INSTALL`::
 
-      IMAGE_FEATURES:append = " tools-debug"
+      IMAGE_INSTALL:append = " packagename-dbg"
 
--  Ensure that debug symbols are present. You can make sure these
-   symbols are present by installing ``-dbg``::
-
-      IMAGE_INSTALL:append = "packagename-dbg"
-
-   Alternatively, you can do the following to include
+   Alternatively, you can add the following to ``local.conf`` to include
    all the debug symbols::
 
-      IMAGE_FEATURES:append = " dbg-pkgs"
+      EXTRA_IMAGE_FEATURES:append = " dbg-pkgs"
 
 .. note::
 
@@ -10565,7 +10561,7 @@ used testing branches for OpenEmbedded-Core are as follows:
 
 -  *poky "master-next" branch:* This branch is part of the
    :yocto_git:`poky </poky/>` repository and combines proposed
-   changes to bitbake, the core metadata and the poky distro.
+   changes to BitBake, the core metadata and the poky distro.
 
 Similarly, stable branches maintained by the project may have corresponding
 ``-next`` branches which collect proposed changes. For example,
@@ -10595,7 +10591,8 @@ Preparing Changes for Submission
    following these accepted conventions:
 
    -  Be sure to include a "Signed-off-by:" line in the same style as
-      required by the Linux kernel. Adding this line signifies that you,
+      required by the Linux kernel. This can be done by using the
+      ``git commit -s`` command. Adding this line signifies that you,
       the submitter, have agreed to the Developer's Certificate of
       Origin 1.1 as follows:
 
@@ -10651,7 +10648,7 @@ Preparing Changes for Submission
    -  If the change addresses a specific bug or issue that is associated
       with a bug-tracking ID, include a reference to that ID in your
       detailed description. For example, the Yocto Project uses a
-      specific convention for bug references - any commit that addresses
+      specific convention for bug references --- any commit that addresses
       a specific bug should use the following form for the detailed
       description. Be sure to use the actual bug-tracking ID from
       Bugzilla for bug-id::
@@ -10914,20 +10911,20 @@ follows:
    result in the most straightforward path into the stable branch for the
    fix.
 
-   a. *If the fix is present in the master branch - Submit a backport request
+   a. *If the fix is present in the master branch --- submit a backport request
       by email:* You should send an email to the relevant stable branch
       maintainer and the mailing list with details of the bug or CVE to be
       fixed, the commit hash on the master branch that fixes the issue and
       the stable branches which you would like this fix to be backported to.
 
-   b. *If the fix is not present in the master branch - Submit the fix to the
+   b. *If the fix is not present in the master branch --- submit the fix to the
       master branch first:* This will ensure that the fix passes through the
       project's usual patch review and test processes before being accepted.
       It will also ensure that bugs are not left unresolved in the master
       branch itself. Once the fix is accepted in the master branch a backport
       request can be submitted as above.
 
-   c. *If the fix is unsuitable for the master branch - Submit a patch
+   c. *If the fix is unsuitable for the master branch --- submit a patch
       directly for the stable branch:* This method should be considered as a
       last resort. It is typically necessary when the master branch is using
       a newer version of the software which includes an upstream fix for the
@@ -11258,7 +11255,7 @@ Providing the Source Code
 
 Compliance activities should begin before you generate the final image.
 The first thing you should look at is the requirement that tops the list
-for most compliance groups - providing the source. The Yocto Project has
+for most compliance groups --- providing the source. The Yocto Project has
 a few ways of meeting this requirement.
 
 One of the easiest ways to meet this requirement is to provide the
@@ -11398,12 +11395,12 @@ example:
    # clean up the .git repos
    $ find . -name ".git" -type d -exec rm -rf {} \;
 
-One
-thing a development organization might want to consider for end-user
-convenience is to modify ``meta-poky/conf/bblayers.conf.sample`` to
-ensure that when the end user utilizes the released build system to
-build an image, the development organization's layers are included in
-the ``bblayers.conf`` file automatically::
+One thing a development organization might want to consider for end-user
+convenience is to modify
+``meta-poky/conf/templates/default/bblayers.conf.sample`` to ensure that when
+the end user utilizes the released build system to build an image, the
+development organization's layers are included in the ``bblayers.conf`` file
+automatically::
 
    # POKY_BBLAYERS_CONF_VERSION is increased each time build/conf/bblayers.conf
    # changes incompatibly
@@ -11432,16 +11429,16 @@ The spdx module has been integrated to a layer named meta-spdxscanner.
 meta-spdxscanner provides several kinds of scanner. If you want to enable
 this function, you have to follow the following steps:
 
-1. Add meta-spdxscanner layer into ``bblayers.conf``. 
+1. Add meta-spdxscanner layer into ``bblayers.conf``.
 
-2. Refer to the README in meta-spdxscanner to setup the environment (e.g, 
+2. Refer to the README in meta-spdxscanner to setup the environment (e.g,
    setup a fossology server) needed for the scanner.
 
 3. Meta-spdxscanner provides several methods within the bbclass to create spdx files.
    Please choose one that you want to use and enable the spdx task. You have to
    add some config options in ``local.conf`` file in your :term:`Build
    Directory`. Here is an example showing how to generate spdx files
-   during bitbake using the fossology-python.bbclass::
+   during BitBake using the fossology-python.bbclass::
 
       # Select fossology-python.bbclass.
       INHERIT += "fossology-python"
@@ -11506,8 +11503,15 @@ known security vulnerabilities, as tracked by the public
 `Common Vulnerabilities and Exposures (CVE) <https://en.wikipedia.org/wiki/Common_Vulnerabilities_and_Exposures>`__
 database.
 
-To know which packages are vulnerable to known security vulnerabilities,
-add the following setting to your configuration::
+The Yocto Project maintains a `list of known vulnerabilities
+<https://autobuilder.yocto.io/pub/non-release/patchmetrics/>`__
+for packages in Poky and OE-Core, tracking the evolution of the number of
+unpatched CVEs and the status of patches. Such information is available for
+the current development version and for each supported release.
+
+To know which packages are vulnerable to known security vulnerabilities
+in the specific image you are building, add the following setting to your
+configuration::
 
    INHERIT += "cve-check"
 

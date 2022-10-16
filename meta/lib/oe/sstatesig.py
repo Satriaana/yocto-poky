@@ -1,4 +1,6 @@
 #
+# Copyright OpenEmbedded Contributors
+#
 # SPDX-License-Identifier: GPL-2.0-only
 #
 import bb.siggen
@@ -24,9 +26,18 @@ def sstate_rundepfilter(siggen, fn, recipename, task, dep, depname, dataCaches):
         return "/allarch.bbclass" in inherits
     def isImage(mc, fn):
         return "/image.bbclass" in " ".join(dataCaches[mc].inherits[fn])
+    def isSPDXTask(task):
+        return task in ("do_create_spdx", "do_create_runtime_spdx")
 
     depmc, _, deptaskname, depmcfn = bb.runqueue.split_tid_mcfn(dep)
     mc, _ = bb.runqueue.split_mc(fn)
+
+    # Keep all dependencies between SPDX tasks in the signature. SPDX documents
+    # are linked together by hashes, which means if a dependent document changes,
+    # all downstream documents must be re-written (even if they are "safe"
+    # dependencies).
+    if isSPDXTask(task) and isSPDXTask(deptaskname):
+        return True
 
     # (Almost) always include our own inter-task dependencies (unless it comes
     # from a mcdepends). The exception is the special
@@ -382,13 +393,13 @@ def find_siginfo(pn, taskname, taskhashlist, d):
             localdata.setVar('PV', '*')
             localdata.setVar('PR', '*')
             localdata.setVar('BB_TASKHASH', hashval)
+            localdata.setVar('SSTATE_CURRTASK', taskname[3:])
             swspec = localdata.getVar('SSTATE_SWSPEC')
             if taskname in ['do_fetch', 'do_unpack', 'do_patch', 'do_populate_lic', 'do_preconfigure'] and swspec:
                 localdata.setVar('SSTATE_PKGSPEC', '${SSTATE_SWSPEC}')
             elif pn.endswith('-native') or "-cross-" in pn or "-crosssdk-" in pn:
                 localdata.setVar('SSTATE_EXTRAPATH', "${NATIVELSBSTRING}/")
-            sstatename = taskname[3:]
-            filespec = '%s_%s.*.siginfo' % (localdata.getVar('SSTATE_PKG'), sstatename)
+            filespec = '%s.siginfo' % localdata.getVar('SSTATE_PKG')
 
             matchedfiles = glob.glob(filespec)
             for fullpath in matchedfiles:

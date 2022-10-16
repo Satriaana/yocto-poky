@@ -9,8 +9,6 @@ import bb.utils
 import functools
 import multiprocessing
 import textwrap
-import json
-import unittest
 import tempfile
 import shutil
 import stat
@@ -18,6 +16,8 @@ import os
 import datetime
 
 exclude_packages = [
+	'rust',
+	'rust-dbg'
 	]
 
 def is_excluded(package):

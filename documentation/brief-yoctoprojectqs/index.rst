@@ -64,11 +64,12 @@ following requirements:
    -  tar &MIN_TAR_VERSION; or greater
    -  Python &MIN_PYTHON_VERSION; or greater.
    -  gcc &MIN_GCC_VERSION; or greater.
+   -  GNU make &MIN_MAKE_VERSION; or greater
 
 If your build host does not meet any of these three listed version
 requirements, you can take steps to prepare the system so that you
 can still use the Yocto Project. See the
-:ref:`ref-manual/system-requirements:required git, tar, python and gcc versions`
+:ref:`ref-manual/system-requirements:required git, tar, python, make and gcc versions`
 section in the Yocto Project Reference Manual for information.
 
 Build Host Packages
@@ -250,18 +251,13 @@ an entire Linux distribution, including the toolchain, from source.
       This is relevant only when your network and the server that you use
       can download these artifacts faster than you would be able to build them.
 
-      To use such mirrors, uncomment the below lines in your ``local.conf``
+      To use such mirrors, uncomment the below lines in your ``conf/local.conf``
       file in the :term:`Build Directory`::
 
          BB_SIGNATURE_HANDLER = "OEEquivHash"
          BB_HASHSERVE = "auto"
-         BB_HASHSERVE_UPSTREAM = "typhoon.yocto.io:8687"
-         SSTATE_MIRRORS ?= "file://.* https://sstate.yoctoproject.org/&YOCTO_DOC_VERSION;/PATH;downloadfilename=PATH"
-
-      The above settings assumed the use of Yocto Project &YOCTO_DOC_VERSION;.
-      If you are using the development version instead, set :term:`SSTATE_MIRRORS` as follows::
-
-         SSTATE_MIRRORS ?= "file://.* https://sstate.yoctoproject.org/dev/PATH;downloadfilename=PATH"
+         BB_HASHSERVE_UPSTREAM = "hashserv.yocto.io:8687"
+         SSTATE_MIRRORS ?= "file://.* https://sstate.yoctoproject.org/all/PATH;downloadfilename=PATH"
 
 #. **Start the Build:** Continue with the following command to build an OS
    image for the target, which is ``core-image-sato`` in this example:
@@ -424,9 +420,9 @@ information including the website, wiki pages, and user manuals:
    development documentation, and access to a rich Yocto Project
    Development Community into which you can tap.
 
--  **Video Seminar:** The `Introduction to the Yocto Project and Bitbake, Part 1
+-  **Video Seminar:** The `Introduction to the Yocto Project and BitBake, Part 1
    <https://youtu.be/yuE7my3KOpo>`__ and
-   `Introduction to the Yocto Project and Bitbake, Part 2
+   `Introduction to the Yocto Project and BitBake, Part 2
    <https://youtu.be/iZ05TTyzGHk>`__ videos offer a video seminar
    introducing you to the most important aspects of developing a
    custom embedded Linux distribution with the Yocto Project.

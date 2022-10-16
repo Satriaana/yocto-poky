@@ -22,7 +22,7 @@ Can I still use the Yocto Project?
 **A:** You can get the required tools on your host development system a
 couple different ways (i.e. building a tarball or downloading a
 tarball). See the
-":ref:`ref-manual/system-requirements:required git, tar, python and gcc versions`"
+":ref:`ref-manual/system-requirements:required git, tar, python, make and gcc versions`"
 section for steps on how to update your build tools.
 
 **Q:** How can you claim Poky / OpenEmbedded-Core is stable?
@@ -54,13 +54,10 @@ Yocto Project is fairly straightforward.
 
 **Q:** Are there any products built using the OpenEmbedded build system?
 
-**A:** The software running on the `Vernier
-LabQuest <https://vernier.com/labquest/>`__ is built using the
-OpenEmbedded build system. See the `Vernier
-LabQuest <https://www.vernier.com/products/interfaces/labq/>`__ website
-for more information. There are a number of pre-production devices using
-the OpenEmbedded build system and the Yocto Project team announces them
-as soon as they are released.
+**A:** See :yocto_wiki:`Products that use the Yocto Project
+</Project_Users#Products_that_use_the_Yocto_Project>` in the Yocto Project
+Wiki. Don't hesitate to contribute to this page if you know other such
+products.
 
 **Q:** What does the OpenEmbedded build system produce as output?
 
@@ -137,9 +134,10 @@ To use them, remove the comments::
    #use_proxy = on
 
 The Yocto Project also includes a
-``meta-poky/conf/site.conf.sample`` file that shows how to configure CVS
-and Git proxy servers if needed. For more information on setting up
-various proxy types and configuring proxy servers, see the
+``meta-poky/conf/templates/default/site.conf.sample`` file that shows
+how to configure CVS and Git proxy servers if needed. For more
+information on setting up various proxy types and configuring proxy
+servers, see the
 ":yocto_wiki:`Working Behind a Network Proxy </Working_Behind_a_Network_Proxy>`"
 Wiki page.
 
@@ -364,7 +362,7 @@ redirect requests through proxy servers.
 
 **Q:** Can I get rid of build output so I can start over?
 
-**A:** Yes - you can easily do this. When you use BitBake to build an
+**A:** Yes --- you can easily do this. When you use BitBake to build an
 image, all the build output goes into the directory created when you run
 the build environment setup script (i.e.
 :ref:`structure-core-script`). By default, this :term:`Build Directory`
@@ -428,7 +426,7 @@ relatively normal and the second is not:
       build/tmp/sysroots/x86_64-linux/usr/bin
 
 Even if the paths look unusual,
-they both are correct - the first for a target and the second for a
+they both are correct --- the first for a target and the second for a
 native recipe. These paths are a consequence of the ``DESTDIR``
 mechanism and while they appear strange, they are correct and in
 practice very effective.
@@ -436,7 +434,7 @@ practice very effective.
 **Q:** The files provided by my ``*-native`` recipe do not appear to be
 available to other recipes. Files are missing from the native sysroot,
 my recipe is installing to the wrong place, or I am getting permissions
-errors during the do_install task in my recipe! What is wrong?
+errors during the :ref:`ref-tasks-install` task in my recipe! What is wrong?
 
 **A:** This situation results when a build system does not recognize the
 environment variables supplied to it by :term:`BitBake`. The

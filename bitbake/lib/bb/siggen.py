@@ -1,4 +1,6 @@
 #
+# Copyright BitBake Contributors
+#
 # SPDX-License-Identifier: GPL-2.0-only
 #
 
@@ -40,7 +42,6 @@ def init(d):
     for sg in siggens:
         if desired == sg.name:
             return sg(d)
-            break
     else:
         logger.error("Invalid signature generator '%s', using default 'noop'\n"
                      "Available generators: %s", desired,
@@ -121,6 +122,9 @@ class SignatureGenerator(object):
     def save_unitaskhashes(self):
         return
 
+    def copy_unitaskhashes(self, targetdir):
+        return
+
     def set_setscene_tasks(self, setscene_tasks):
         return
 
@@ -155,6 +159,9 @@ class SignatureGenerator(object):
             return dataCaches
 
         return DataCacheProxy()
+
+    def exit(self):
+        return
 
 class SignatureGeneratorBasic(SignatureGenerator):
     """
@@ -356,6 +363,9 @@ class SignatureGeneratorBasic(SignatureGenerator):
     def save_unitaskhashes(self):
         self.unihash_cache.save(self.unitaskhashes)
 
+    def copy_unitaskhashes(self, targetdir):
+        self.unihash_cache.copyfile(targetdir)
+
     def dump_sigtask(self, fn, task, stampbase, runtime):
 
         tid = fn + ":" + task
@@ -417,7 +427,7 @@ class SignatureGeneratorBasic(SignatureGenerator):
                 bb.error("Taskhash mismatch %s versus %s for %s" % (computed_taskhash, self.taskhash[tid], tid))
                 sigfile = sigfile.replace(self.taskhash[tid], computed_taskhash)
 
-        fd, tmpfile = tempfile.mkstemp(dir=os.path.dirname(sigfile), prefix="sigtask.")
+        fd, tmpfile = bb.utils.mkstemp(dir=os.path.dirname(sigfile), prefix="sigtask.")
         try:
             with bb.compress.zstd.open(fd, "wt", encoding="utf-8", num_threads=1) as f:
                 json.dump(data, f, sort_keys=True, separators=(",", ":"), cls=SetEncoder)
@@ -488,6 +498,18 @@ class SignatureGeneratorUniHashMixIn(object):
         if getattr(self, '_client', None) is None:
             self._client = hashserv.create_client(self.server)
         return self._client
+
+    def reset(self, data):
+        if getattr(self, '_client', None) is not None:
+            self._client.close()
+            self._client = None 
+        return super().reset(data)
+
+    def exit(self):
+        if getattr(self, '_client', None) is not None:
+            self._client.close()
+            self._client = None
+        return super().exit()
 
     def get_stampfile_hash(self, tid):
         if tid in self.taskhash:
@@ -976,8 +998,8 @@ def compare_sigfiles(a, b, recursecb=None, color=False, collapsed=False):
 
 
     if 'runtaskhashes' in a_data and 'runtaskhashes' in b_data:
-        a = a_data['runtaskhashes']
-        b = b_data['runtaskhashes']
+        a = clean_basepaths(a_data['runtaskhashes'])
+        b = clean_basepaths(b_data['runtaskhashes'])
         changed, added, removed = dict_diff(a, b)
         if added:
             for dep in sorted(added):
@@ -988,7 +1010,7 @@ def compare_sigfiles(a, b, recursecb=None, color=False, collapsed=False):
                             #output.append("Dependency on task %s was replaced by %s with same hash" % (dep, bdep))
                             bdep_found = True
                 if not bdep_found:
-                    output.append(color_format("{color_title}Dependency on task %s was added{color_default} with hash %s") % (clean_basepath(dep), b[dep]))
+                    output.append(color_format("{color_title}Dependency on task %s was added{color_default} with hash %s") % (dep, b[dep]))
         if removed:
             for dep in sorted(removed):
                 adep_found = False
@@ -998,11 +1020,11 @@ def compare_sigfiles(a, b, recursecb=None, color=False, collapsed=False):
                             #output.append("Dependency on task %s was replaced by %s with same hash" % (adep, dep))
                             adep_found = True
                 if not adep_found:
-                    output.append(color_format("{color_title}Dependency on task %s was removed{color_default} with hash %s") % (clean_basepath(dep), a[dep]))
+                    output.append(color_format("{color_title}Dependency on task %s was removed{color_default} with hash %s") % (dep, a[dep]))
         if changed:
             for dep in sorted(changed):
                 if not collapsed:
-                    output.append(color_format("{color_title}Hash for task dependency %s changed{color_default} from %s to %s") % (clean_basepath(dep), a[dep], b[dep]))
+                    output.append(color_format("{color_title}Hash for task dependency %s changed{color_default} from %s to %s") % (dep, a[dep], b[dep]))
                 if callable(recursecb):
                     recout = recursecb(dep, a[dep], b[dep])
                     if recout:
@@ -1012,6 +1034,7 @@ def compare_sigfiles(a, b, recursecb=None, color=False, collapsed=False):
                             # If a dependent hash changed, might as well print the line above and then defer to the changes in
                             # that hash since in all likelyhood, they're the same changes this task also saw.
                             output = [output[-1]] + recout
+                            break
 
     a_taint = a_data.get('taint', None)
     b_taint = b_data.get('taint', None)

@@ -200,7 +200,7 @@ Packaging changes
 -----------------
 
 -  ``intltool`` has been removed from ``packagegroup-core-sdk`` as it is
-   rarely needed to build modern software - gettext can do most of the
+   rarely needed to build modern software --- gettext can do most of the
    things it used to be needed for. ``intltool`` has also been removed
    from ``packagegroup-core-self-hosted`` as it is not needed to for
    standard builds.
@@ -234,7 +234,7 @@ Packaging changes
 Additional warnings
 -------------------
 
-Warnings will now be shown at ``do_package_qa`` time in the following
+Warnings will now be shown at :ref:`ref-tasks-package_qa` time in the following
 circumstances:
 
 -  A recipe installs ``.desktop`` files containing ``MimeType`` keys but
@@ -260,7 +260,7 @@ Miscellaneous changes
 ---------------------
 
 -  The undocumented ``SRC_DISTRIBUTE_LICENSES`` variable has now been
-   removed in favour of a new :term:`AVAILABLE_LICENSES` variable which is
+   removed in favour of a new ``AVAILABLE_LICENSES`` variable which is
    dynamically set based upon license files found in
    ``${COMMON_LICENSE_DIR}`` and ``${LICENSE_PATH}``.
 

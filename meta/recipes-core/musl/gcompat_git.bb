@@ -8,12 +8,13 @@ LICENSE = "NCSA"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=eb33ef4af05a9c7602843afb7adfe792"
 
 SRC_URI = "git://git.adelielinux.org/adelie/gcompat.git;protocol=https;branch=current \
-          "
+           file://0001-auxv-new-module.patch \
+           "
 SRC_URI:append:powerpc = "\
            file://0001-make-Static-PIE-does-not-work-on-musl-ppc.patch \
            "
 PV = "1.0.0+1.1+git${SRCPV}"
-SRCREV = "4d6a5156a6eb7f56b30d93853a872e36dadde81b"
+SRCREV = "c6921a1aa454bb87671f9bd1ecfe47d80d1620aa"
 
 S = "${WORKDIR}/git"
 
@@ -37,14 +38,16 @@ do_compile () {
 }
 
 do_install () {
-	oe_runmake install 'DESTDIR=${D}'
+	oe_runmake install 'DESTDIR=${D}${root_prefix}'
 	if [ "${SITEINFO_BITS}" = "64" ]; then
-		install -d ${D}/lib64
-		ln -rs ${D}${GLIBC_LDSO} ${D}/lib64/`basename ${GLIBC_LDSO}`
+		install -d ${D}${nonarch_base_libdir}${SITEINFO_BITS}
+		ln -rs ${D}${GLIBC_LDSO} ${D}${nonarch_base_libdir}${SITEINFO_BITS}/`basename ${GLIBC_LDSO}`
 	fi
+	install -d ${D}${libdir}
+	ln -sf ${base_libdir}/libgcompat.so.0 ${D}${libdir}/libgcompat.so
 }
 
-FILES:${PN} += "/lib64"
+FILES:${PN} += "${nonarch_base_libdir}${SITEINFO_BITS}"
 
 INSANE_SKIP:${PN} = "libdir"
 

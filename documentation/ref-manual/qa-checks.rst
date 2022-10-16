@@ -154,7 +154,16 @@ Errors and Warnings
    ``FILES:${PN}-dbg``. See :term:`FILES` for additional
    information on :term:`FILES`.
 
-    
+.. _qa-check-empty-dirs:
+
+-  ``<packagename> installs files in <path>, but it is expected to be empty [empty-dirs]``
+
+   The specified package is installing files into a directory that is
+   normally expected to be empty (such as ``/tmp``). These files may
+   be more appropriately installed to a different location, or
+   perhaps alternatively not installed at all, usually by updating the
+   :ref:`ref-tasks-install` task/function.
+
 .. _qa-check-arch:
 
 -  ``Architecture did not match (<file_arch>, expected <machine_arch>) in <file> [arch]``
@@ -527,7 +536,7 @@ Errors and Warnings
       in (e.g. ``FILES:${``\ :term:`PN`\ ``}`` for the main
       package).
 
-   -  Delete the files at the end of the ``do_install`` task if the
+   -  Delete the files at the end of the :ref:`ref-tasks-install` task if the
       files are not needed in any package.
 
     
@@ -573,7 +582,7 @@ Errors and Warnings
    ``${datadir}/mime/packages``) and yet does not inherit the mime
    class which will ensure that these get properly installed. Either
    add ``inherit mime`` to the recipe or remove the files at the
-   ``do_install`` step if they are not needed.
+   :ref:`ref-tasks-install` step if they are not needed.
 
 
 .. _qa-check-mime-xdg:
@@ -583,7 +592,7 @@ Errors and Warnings
     The specified package contains a .desktop file with a 'MimeType' key
     present, but does not inherit the mime-xdg class that is required in
     order for that to be activated. Either add ``inherit mime`` to the
-    recipe or remove the files at the ``do_install`` step if they are not
+    recipe or remove the files at the :ref:`ref-tasks-install` step if they are not
     needed.
 
 
@@ -604,7 +613,7 @@ Errors and Warnings
     so using ${:term:`BPN`} rather than ${:term:`PN`} as the latter will change
     for different variants of the same recipe e.g. when :term:`BBCLASSEXTEND`
     or multilib are being used. This check will fail if a reference to ``${PN}``
-    is found within the :term:`SRC_URI` value - change it to ``${BPN}`` instead.
+    is found within the :term:`SRC_URI` value --- change it to ``${BPN}`` instead.
 
 
 .. _qa-check-unhandled-features-check:
@@ -658,8 +667,8 @@ Errors and Warnings
 
     If ``usrmerge`` is in :term:`DISTRO_FEATURES`, this check will ensure that no package
     installs files to root (``/bin``, ``/sbin``, ``/lib``, ``/lib64``) directories. If you are seeing this
-    message, it indicates that the ``do_install`` step (or perhaps the build process that
-    ``do_install`` is calling into, e.g. ``make install`` is using hardcoded paths instead
+    message, it indicates that the :ref:`ref-tasks-install` step (or perhaps the build process that
+    :ref:`ref-tasks-install` is calling into, e.g. ``make install`` is using hardcoded paths instead
     of the variables set up for this (``bindir``, ``sbindir``, etc.), and should be
     changed so that it does.
 
@@ -668,7 +677,7 @@ Errors and Warnings
 
 - ``Fuzz detected: <patch output> [patch-fuzz]``
 
-    This check looks for evidence of "fuzz" when applying patches within the ``do_patch``
+    This check looks for evidence of "fuzz" when applying patches within the :ref:`ref-tasks-patch`
     task. Patch fuzz is a situation when the ``patch`` tool ignores some of the context
     lines in order to apply the patch. Consider this example:
 
@@ -718,7 +727,7 @@ Errors and Warnings
             devtool modify <recipe>
 
     This will apply all of the patches, and create new commits out of them in
-    the workspace - with the patch context updated.
+    the workspace --- with the patch context updated.
 
     Then, replace the patches in the recipe layer::
 
